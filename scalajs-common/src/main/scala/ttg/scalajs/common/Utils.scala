@@ -20,9 +20,6 @@ object Utils {
   def addMinutes(d: js.Date, n: Int): js.Date =
     new js.Date(d.getTime() + (n * 60 * 1000))
 
-  /** Empty dynamics object read to add options in a javascript way. */
-  def options() = js.Dynamic.literal()
-
   /** Factory to create a matcher.
     * @return A => Boolean
     */
@@ -110,16 +107,6 @@ object Utils {
     result.asInstanceOf[T]
   }
 
-  /** Generate a new CRM GUID. */
-  @inline def GUID(): String = java.util.UUID.randomUUID.toString
-
-  /** Parse some json. */
-  @inline def jsonParse(content: String, reviver: Option[Reviver] = None): js.Dynamic =
-    js.JSON.parse(content, reviver.getOrElse(js.undefined.asInstanceOf[Reviver]))
-
-  /** Clean an id that has braces around it. */
-  @inline def cleanId(id: String): String = id.stripSuffix("}").stripPrefix("{").trim
-
   /** Given a throwable, convert the stacktrace to a string for printing. */
   def getStackTraceAsString(t: Throwable): String = {
     val sw = new StringWriter
@@ -127,19 +114,10 @@ object Utils {
     sw.toString
   }
 
-  /** Strip a string suitable for a text attribute in dynamics. Essentially, it
-   * preserves some ASCII characters and leaves a few whitespace control
-   * characters (newline, cr, tab).
+  /** Strip a string of control characters Preserves some ASCII characters and
+   * leaves a few whitespace control characters: newline, cr, tab.
    */
   def strip(in: String): String =
     in.replaceAll("[\\p{Cntrl}&&[^\n\t\r]]", "").replaceAll("\\P{InBasic_Latin}", "")
 
-  /** JS version. @see https://stackoverflow.com/questions/7905929/how-to-test-valid-uuid-guid */
-  val GUID_r = new js.RegExp("^[0-9A-F]{8}-[0-9A-F]{4}-[5][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$", "i")
-
-  /** 
-   * Return true if the identifier matches a GUId format, false otherwise.
-   * @see https://www.ietf.org/rfc/rfc4122.txt
-   */
-  def maybeId(identifier: String): Boolean = GUID_r.test(identifier)
 }

@@ -23,9 +23,10 @@ import js.Dynamic.{literal => jsobj}
 import Utils._
 
 final case class StreamOps[F[_], O](s: Stream[F, O]) {
-  def vectorChunkN(n: Int): Stream[F, Vector[O]] = s.segmentN(n).map(_.force.toVector)
+  def vectorChunkN(n: Int): Stream[F, Vector[O]] =
+    s.chunkN(n).map(_.toVector)
   def groupBy[O2](f: O => O2)(implicit eq: Eq[O2]): Stream[F, (O2, Vector[O])] =
-    s.groupAdjacentBy(f).map(p => (p._1, p._2.force.toVector))
+    s.groupAdjacentBy(f).map(p => (p._1, p._2.toVector))
 }
 
 trait StreamSyntax {
@@ -210,7 +211,7 @@ trait JsPromiseInstances {
 
 trait JsPromiseSyntax {
   implicit class RichPromise[A](p: js.Promise[A]) {
-    def toIO(implicit ec: ExecutionContext, cvt: js.Promise[A] ~> IO[A]): IO[A] = cvt(p)
+    def toIO(implicit ec: ExecutionContext, cvt: js.Promise ~> IO): IO[A] = cvt(p)
   }
 }
 

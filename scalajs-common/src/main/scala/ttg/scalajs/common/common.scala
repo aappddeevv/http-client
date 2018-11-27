@@ -7,7 +7,6 @@ package ttg.scalajs
 import scala.concurrent._
 import scala.scalajs.js
 import scalajs.runtime.wrapJavaScriptException
-import js.|
 import fs2._
 import cats.~>
 import cats.effect._
@@ -18,9 +17,10 @@ package object common {
 
   type JsAnyDict = js.Dictionary[js.Any]
 
-  implicit def jsPromiseToIO[A](implicit ec: ExecutionContext): js.Promise[A] ~> IO[A] =
+  implicit def jsPromiseToIO[A](implicit ec: ExecutionContext):
+      js.Promise ~> IO =
     new (js.Promise ~> IO) {
-      override def apply(p: js.Promise[A]) =
+      override def apply[A](p: js.Promise[A]) =
         IO.async { cb =>
           p.`then`[Unit](
             { (v: A) => cb(Right(v))},

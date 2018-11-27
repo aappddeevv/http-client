@@ -24,7 +24,7 @@ object BrowserFetch {
         val result = new Headers(lhs)
         for((key,value) <- rhs) result.set(k, v)
         result
-    }
+    }}
 }
 
 /**
@@ -32,7 +32,7 @@ object BrowserFetch {
  * 
  * @see https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/fetch
  */
-object BrowserFetchClient extends LazyLogger {
+object BrowserFetchClient{ 
   import BrowserFetch._
 
   def create[F[_]](dataUrl: Option[String],
@@ -44,7 +44,7 @@ object BrowserFetchClient extends LazyLogger {
 
     val base = dataUrl.map(u => if(u.endsWith("/")) u.dropRight(1) else u).getOrElse("")
 
-    val svc: HttpRequest[F] => F[Response[F]] = { request =>
+    val svc: HttpRequest[F] => F[HttpResponse[F]] = { request =>
       val hashttp = request.path.startsWith("http")
       assert(request.path(0) == '/' || hashttp, s"Request path must start with a slash (/) or http: ${request.path}}")
       val url                        = (if (!hashttp) base else "") + request.path

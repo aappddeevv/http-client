@@ -15,7 +15,7 @@ import cats._
 import cats.data._
 import cats.implicits._
 
-import ttg.odata.client.common
+import ttg.scalajs.common
 import common._
 import common.implicits._
 
@@ -163,7 +163,7 @@ object JSDataHelpers {
       {
         val o = obj.asAnyDict
         drop.foreach(omit(o, _: _*))
-        rename.foreach(jsdatahelpers.rename(o, _: _*))
+        rename.foreach(JSDataHelpers.rename(o, _: _*))
         keep.foreach(keepOnly(o, _: _*))
         obj
       }

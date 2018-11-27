@@ -73,7 +73,7 @@ lazy val clientcommon = project
   .settings(description := "Common client components")
   .settings(name := "odata-client-client-common")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
-  .dependsOn(`scalajs-common`, http)
+  .dependsOn(`scalajs-common`)
 
 lazy val http = project
   .settings(dynamicsSettings)
@@ -87,14 +87,17 @@ lazy val `node-fetch` = project
   .settings(name := "odata-client-node-fetch")
   .settings(description := "odata client based on node fetch")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
-  .dependsOn(http,client,`scalajs-common`)
+  .dependsOn(http,`scalajs-common`)
 
 lazy val `browser-fetch` = project
   .settings(dynamicsSettings)
+  .settings(libraryDependencies ++= Seq(
+	"org.scala-js" %%% "scalajs-dom" % "latest.version"
+  ))
   .settings(name := "odata-client-browser-fetch")
   .settings(description := "odata client based on a browser's fetch")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
-  .dependsOn(http,client,`scalajs-common`)
+  .dependsOn(http,`scalajs-common`)
 
 lazy val adal = project
   .settings(dynamicsSettings)
@@ -108,7 +111,7 @@ lazy val client = project
   .settings(name := "odata-client-clients")
   .settings(description := "odata client")
   // need to get rid of dependency on `scalajs-common`i
-  .dependsOn(http, client-common`, `scalajs-common`)
+  .dependsOn(http, clientcommon, `scalajs-common`)
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
 
 lazy val docs = project
