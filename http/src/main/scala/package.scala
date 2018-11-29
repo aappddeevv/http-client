@@ -25,6 +25,8 @@ package object http {
   /** Basic headers are a dict of strings. */
   type HttpHeaders = collection.immutable.Map[String, Seq[String]]
 
+  val EmptyHeaders = collection.immutable.Map[String, Seq[String]]()
+
   /**
    * When decoding a response body, either you get an A or a DecodeFailure. The
     * effect may also carry an exception.  EitherT has a bunch of combinators
@@ -43,4 +45,12 @@ package object http {
 
   /** Reviver used when decoding using javascript engine decoder. */
   type Reviver = js.Function2[js.Any, js.Any, js.Any]
+
+  /** Cast to CodeMessage if "code" is defined on the object. */
+  def maybeError[CM <: CodeMessage]: PartialFunction[js.Object, CM] =
+  {
+    case err@_ if(
+      js.Object.hasOwnProperty("error") &&
+        js.Object.hasOwnProperty("message")) => err.asInstanceOf[CM]
+  }
 }

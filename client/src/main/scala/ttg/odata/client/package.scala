@@ -2,40 +2,39 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.odata.client
+package ttg.odata
 import io.estatico.newtype.macros.newtype
 
 import scala.scalajs.js
 import js.|
 import dynamics.common.Utils.{merge}
 
-/**
-  * Common definitions for clients.
-  */
-package object common {
-    /** Id newtype. */
-  @newtype case class Id(asString: String)
+
+package object client {
+  ///** Id newtype. */
+  //@newtype case class Id(asString: String)
 
   /** Entity set name newtype. */
   @newtype case class EntitySetName(asString: String)
 
-  /** Entity logical name newtype. Could be entity or attribute. */
+  /** Entity logical name newtype. */
   @newtype case class EntityLogicalName(asString: String)
 
   /** Any type of logical name. */
   @newtype case class LogicalName(asString: String)
 
-  import headers._
-
   val defaultMappers = Map[String, String => String](
-    FormattedValue               -> (_ + "_fv"),
+    headers.FormattedValue               -> (_ + "_fv")
   )
 
   val defaultODataToOmit = Seq[String](
-    FormattedValue,
+    headers.FormattedValue
   )
 
-  /**
+  /** All 0s GUID */
+  val zeroGUID = "00000000-0000-0000-0000-000000000000"
+
+    /**
     * Remap some OData response artifacts if found. Note that if O is a
     * non-native JS trait, you may want to ensure that you "add" attributes to
     * your trait that match the conventions specified so you can access the

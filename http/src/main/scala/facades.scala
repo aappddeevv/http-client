@@ -9,21 +9,8 @@ import scala.scalajs.js
 import js.UndefOr
 import js.annotation._
 
-/** User provided configuration informmation. */
-trait ConnectionInfo extends js.Object {
-  var tenant: UndefOr[String]               = js.undefined
-  var username: UndefOr[String]             = js.undefined
-  var password: UndefOr[String]             = js.undefined
-  var applicationId: UndefOr[String]        = js.undefined
-  var dataUrl: UndefOr[String]              = js.undefined
-  var acquireTokenResource: UndefOr[String] = js.undefined
-  var authorityHostUrl: UndefOr[String]     = js.undefined
-  var renewalFraction: UndefOr[Int]         = js.undefined
-  var secret: UndefOr[String]         = js.undefined
-}
-
 /**
-  * Use this when you *only* care about the `@odata.nextLink` link.
+  * Use this to capture the `@odata.nextLink` link.
   */
 @js.native
 trait NextLinkResponse[A] extends js.Object {
@@ -52,4 +39,39 @@ trait ValueArrayResponse[A <: scala.Any] extends NextLinkResponse[A] {
 @js.native
 trait SingleValueResponse[A <: scala.Any] extends js.Object {
   val value: js.UndefOr[A] = js.native
+}
+
+/**
+ * Toplevel trait if there is an error. A system specific error may also be
+ * present. You can use `CodeMessage` or `ErrorResponseDetail` as the type
+ * parameter, or roll your own.
+ */
+@js.native
+trait ErrorResponse[CM <: CodeMessage] extends js.Object {
+  val error: js.UndefOr[CM] = js.native
+}
+
+/**
+ * Spec defined.
+ */
+@js.native
+trait ErrorResponseDetail[IE <: js.Object, CMT <: CodeMessageTarget]
+    extends CodeMessage {
+  var target: js.UndefOr[String] = js.native
+  var details: js.UndefOr[js.Array[CMT]] = js.native
+  var innererror: js.UndefOr[IE] = js.native  
+}
+
+/**
+ * Spec defined.
+ */
+@js.native
+trait CodeMessage extends js.Object {
+  var code: String = js.native
+  var message: String = js.native
+}
+
+@js.native
+trait CodeMessageTarget extends CodeMessage {
+    var target: js.UndefOr[String] = js.native
 }

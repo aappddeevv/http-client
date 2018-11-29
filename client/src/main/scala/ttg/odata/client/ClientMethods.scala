@@ -2,25 +2,24 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.odata.client
-package common
+package ttg.odata
+package client
 
 import scala.scalajs.js
 import js._
 import cats.effect._
 import fs2._
 
-import client.http._
-import fs2helpers._
+import http._
+import ttg.scalajs.common.fs2helpers._
 
 /**
-  * Methods common to clients. Many take alot of parameters in order to allow
-  * them to be used in multiple places.
+  * Misc methods common to most OData clients.
   */
-trait ClientMethods { //extends LazyLogger {
+private[client] trait ClientOps[F[_]] {
+  self: ClientError[F] =>
 
-  def http: Client[IO]
-  def responseToFailedTask[A](resp: HttpResponse[IO], msg: String, req: Option[HttpRequest[IO]]): IO[A]
+  def http: Client[F]
 
   /**
     * Get a list of values. Follows @data.nextLink but accumulates all the
@@ -53,7 +52,7 @@ trait ClientMethods { //extends LazyLogger {
                 Option((a, odata.nextLink.toOption))
               }
             case failedResponse =>
-              responseToFailedTask(failedResponse, s"getListStream $url", Option(request))
+              raiseError(failedResponse, s"getListStream $url", Option(request))
           }
       }
     }

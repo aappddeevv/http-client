@@ -2,8 +2,8 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.odata.client
-package common
+package ttg.odata
+package client
 
 import scala.scalajs.js
 import js._

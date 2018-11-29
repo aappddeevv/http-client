@@ -60,7 +60,8 @@ lazy val root = project.in(file("."))
   .settings(dynamicsSettings)
   .settings(noPublishSettings)
   .settings(name := "odata-client")
-  .aggregate(http, client, clientcommon, `scalajs-common`, docs, adal, `node-fetch`, `browser-fetch`)
+  .aggregate(http, client, `scalajs-common`,
+    docs, adal, `node-fetch`, `browser-fetch`)
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
 
 lazy val `scalajs-common` = project
@@ -68,13 +69,6 @@ lazy val `scalajs-common` = project
   .settings(description := "Common components")
   .settings(name := "scalajs-common")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
-
-lazy val clientcommon = project
-  .settings(dynamicsSettings)
-  .settings(description := "Common client components")
-  .settings(name := "odata-client-client-common")
-  .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
-  .dependsOn(`scalajs-common`)
 
 lazy val http = project
   .settings(dynamicsSettings)
@@ -112,7 +106,7 @@ lazy val client = project
   .settings(name := "odata-client-clients")
   .settings(description := "odata client")
   // need to get rid of dependency on `scalajs-common`i
-  .dependsOn(http, clientcommon, `scalajs-common`)
+  .dependsOn(http, `scalajs-common`)
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
 
 lazy val docs = project
@@ -121,7 +115,7 @@ lazy val docs = project
   .settings(commonSettings)
   .settings(libraryDependencies ++= Dependencies.appDependencies.value)
   .enablePlugins(MicrositesPlugin, ScalaUnidocPlugin, ScalaJSPlugin)
-  .aggregate(clientcommon, client, http, `scalajs-common`, `node-fetch`, `browser-fetch`)
+  .aggregate(client, http, `scalajs-common`, `node-fetch`, `browser-fetch`)
   .settings(
     micrositeName := "odata-client",
     micrositeDescription := "A Microsoft Dynamics CLI swiss-army knife and browser/server library.",

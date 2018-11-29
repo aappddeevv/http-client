@@ -8,20 +8,26 @@ package client
 import scala.scalajs.js
 import js.annotation._
 
-import dynamics.common._
-import dynamics.http._
-import dynamics.http.instances.entityencoder._
+import http._
 
-trait ODataRequests {
+import http.instances.entityencoder._
+import http.instances.entitydecoder._
 
-  val DefaultBatchRequest = HttpRequest(Method.PUT, "/$batch")
-  import client.common.headers
+/** Create OData HTTP requests given various input parameters. */
+trait ODataRequests[F[_], PO <: BasicPreferOptions, RO <: RequestOptions[PO]] {
+
+  /** Renderer for `RO`. */
+  val roRenderer: HeaderRenderer[RO]
+  val emptyBody: Entity[F]
+
+
+  val DefaultBatchRequest = HttpRequest(Method.PUT, "/$batch", emptyBody)
 
   /**
     * This does not handle the version tag + applyOptimisticConcurrency flag yet.
     */
-  def toHeaders(o: DynamicsOptions): HttpHeaders = {
-    val prefer = headers.render(o.prefers)
+  def toHeaders(o: Option[RO]): HttpHeaders = {
+    val prefer = o.fold(EmptyHeaders)(roRenderer.render(_))
     prefer.map(str => HttpHeaders("Prefer"        -> str)).getOrElse(HttpHeaders.empty) ++
       o.user.map(u => HttpHeaders("MSCRMCallerId" -> u)).getOrElse(HttpHeaders.empty) ++
       (
@@ -31,18 +37,18 @@ trait ODataRequests {
     //++ o.version.map(etag => HttpHeaders("If-None-Match" -> etag)).getOrElse(HttpHeaders.empty)
   }
 
-  def mkGetListRequest[F[_]](url: String, opts: DynamicsOptions = DefaultDynamicsOptions) =
-    HttpRequest[F](Method.GET, url, headers = toHeaders(opts))
+  def mkGetListRequest(url: String, opts: Option[RO] = None) =
+    HttpRequest[F](Method.GET, url, headers = toHeaders(opts), emptyBody)
 
-  def mkCreateRequest[F[_], B](entitySet: String, body: B, opts: DynamicsOptions = DefaultDynamicsOptions)(
-      implicit e: EntityEncoder[B]) = {
+  def mkCreateRequest[B](entitySet: String, body: B, opts: Option[RO] = None)(
+      implicit e: EntityEncoder[F,B]) = {
     // HttpRequest(Method.POST, s"/$entitySet", body = Entity.fromString(body), headers = toHeaders(opts))
-    val (b, h) = e.encode(body)
-    HttpRequest[F](Method.POST, s"/$entitySet", body = b, headers = toHeaders(opts) ++ h)
+    val (xtras, ent) = e.toEntity(body)
+    HttpRequest[F](Method.POST, s"/$entitySet", body = ent, headers = toHeaders(opts) ++ xtras)
   }
 
   /** Make a pure delete request. */
-  def mkDeleteRequest[F[_]](entitySet: String, keyInfo: DynamicsId, opts: DynamicsOptions = DefaultDynamicsOptions) = {
+  def mkDeleteRequest(entitySet: String, keyInfo: ODataId, opts: Option[RO] = None) = {
     val etag =
       if (opts.applyOptimisticConcurrency.getOrElse(false) && opts.version.isDefined)
         HttpHeaders("If-Match" -> opts.version.get)
@@ -50,36 +56,39 @@ trait ODataRequests {
     HttpRequest[F](Method.DELETE, s"/$entitySet(${keyInfo.render()})", headers = toHeaders(opts))
   }
 
-  def mkGetOneRequest[F[_]](url: String, opts: DynamicsOptions) = {
+  def mkGetOneRequest(url: String, opts: Option[RO] = None) = {
     val etag = opts.version.map(etag => HttpHeaders("If-None-Match" -> etag)).getOrElse(HttpHeaders.empty)
-    HttpRequest[F](Method.GET, url, headers = toHeaders(opts) ++ etag)
+    HttpRequest[F](Method.GET, url, headers = toHeaders(opts) ++ etag, emptyBody)
   }
 
-  def mkExecuteActionRequest[F[_]](action: String,
-                                   body: Entity,
-                                   entitySetAndId: Option[(String, String)] = None,
-                                   opts: DynamicsOptions = DefaultDynamicsOptions) = {
+  def mkExecuteActionRequest[A](action: String,
+    body: A,
+    entitySetAndId: Option[(String, String)] = None,
+    opts: Option[RO] = None)(
+    implicit E: EntityEncoder[F, A]) = {
     val url = entitySetAndId.map { case (c, i) => s"/$c($i)/$action" }.getOrElse(s"/$action")
-    HttpRequest[F](Method.POST, url, body = body, headers = toHeaders(opts))
+    val (hdrs, ent) = E.toEntity(body)
+    HttpRequest[F](Method.POST, url, body = ent, headers = toHeaders(opts) ++ hdrs)
   }
 
   /**
     * Not sure adding $base to the @odata.id is absolutely needed. Probably is.
     * @see https://docs.microsoft.com/en-us/dynamics365/customer-engagement/developer/webapi/associate-disassociate-entities-using-web-api?view=dynamics-ce-odata-9
     */
-  def mkAssociateRequest[F[_]](fromEntitySet: String,
-                               fromEntityId: String,
-                               navProperty: String,
-                               toEntitySet: String,
-                               toEntityId: String,
-                               base: String,
-                               singleValuedNavProperty: Boolean = true): HttpRequest[F] = {
+  def mkAssociateRequest(fromEntitySet: String,
+    fromEntityId: String,
+    navProperty: String,
+    toEntitySet: String,
+    toEntityId: String,
+    base: String,
+    singleValuedNavProperty: Boolean = true): HttpRequest[F] = {
     val url  = s"/${fromEntitySet}(${fromEntityId})/$navProperty/$$ref"
     val body = s"""{"@odata.id": "$base/$toEntitySet($toEntityId)"}"""
     val method =
       if (singleValuedNavProperty) Method.PUT
       else Method.POST
-    HttpRequest(method, url, body = Entity.fromString(body))
+    val (xtras, ent) = EntityEncoder[F,String].toEntity(body)
+    HttpRequest(method, url, body = ent)
   }
 
   /**
@@ -88,27 +97,27 @@ trait ODataRequests {
     *
     * @see https://docs.microsoft.com/en-us/dynamics365/customer-engagement/developer/webapi/associate-disassociate-entities-using-web-api?view=dynamics-ce-odata-9
     */
-  def mkDisassocatiateRequest[F[_]](fromEntitySet: String,
-                                    fromEntityId: String,
-                                    navProperty: String,
-                                    toId: Option[String]): HttpRequest[F] = {
+  def mkDisassocatiateRequest(fromEntitySet: String,
+    fromEntityId: String,
+    navProperty: String,
+    toId: Option[String]): HttpRequest[F] = {
     val navPropertyStr = toId.map(id => s"$navProperty($id)").getOrElse(navProperty)
     val url            = s"/$fromEntitySet($fromEntityId)/$navPropertyStr/$$ref"
-    HttpRequest(Method.DELETE, url, body = Entity.empty)
+    HttpRequest(Method.DELETE, url, body = emptyBody)
   }
 
   /**
     * Create a PATCH request that could also upsert. "opts" version could
     * override upsertPreventCreate if a version value is also included, so be careful.
     */
-  def mkUpdateRequest[F[_], B](entitySet: String,
-                               id: String,
-                               body: B,
-                               upsertPreventCreate: Boolean = true,
-                               upsertPreventUpdate: Boolean = false,
-                               options: DynamicsOptions = DefaultDynamicsOptions,
-                               base: Option[String] = None)(implicit enc: EntityEncoder[B]): HttpRequest[F] = {
-    val (b, xtra) = enc.encode(body)
+  def mkUpdateRequest[B](entitySet: String,
+    id: String,
+    body: B,
+    upsertPreventCreate: Boolean = true,
+    upsertPreventUpdate: Boolean = false,
+    options: Option[RO] = None,
+    base: Option[String] = None)(implicit enc: EntityEncoder[F,B]): HttpRequest[F] = {
+    val (xtra, ent) = enc.toEntity(body)
     val h1 =
       if (upsertPreventCreate) HttpHeaders("If-Match" -> "*")
       else HttpHeaders.empty
@@ -125,13 +134,12 @@ trait ODataRequests {
     HttpRequest(Method.PATCH,
                 s"${base.getOrElse("")}/$entitySet($id)",
                 toHeaders(options) ++ h1 ++ h2 ++ h3 ++ xtra ++ mustHave,
-                b)
+      ent)
   }
 
-  def mkExecuteFunctionRequest[F[_]](function: String,
-                                     parameters: Map[String, scala.Any] = Map.empty,
-                                     entity: Option[(String, String)] = None) = {
-    // (parm, parmvalue)
+  def mkExecuteFunctionRequest(function: String,
+    parameters: Map[String, scala.Any] = Map.empty,
+    entity: Option[(String, String)] = None) = {
     val q: Seq[(String, String)] = parameters.keys.zipWithIndex
       .map(x => (x._1, x._2 + 1))
       .map {
@@ -150,21 +158,19 @@ trait ODataRequests {
     val entityPart = entity.map(p => s"/${p._1}(${p._2})").getOrElse("")
 
     val url = s"$entityPart$functionPart"
-    HttpRequest[F](Method.GET, url)
+    HttpRequest[F](Method.GET, url, body=emptyBody)
   }
 
   /** @depecated. Use `mkBatch`. */
-  def mkBatchRequest[F[_], A](headers: HttpHeaders, m: Multipart): HttpRequest[F] = mkBatch(m, headers)
+  def mkBatchRequest[A](headers: HttpHeaders, m: Multipart[F]): HttpRequest[F] = mkBatch(m, headers)
 
   /**
     * Body in HttpRequest is ignored and is instead generated from m.
     * Since the parts will have requests, you need to ensure that the
     * base URL used in those requests have a consistent base URL.
     */
-  def mkBatch[F[_]](m: Multipart, headers: HttpHeaders = HttpHeaders.empty): HttpRequest[F] = {
-    val (mrendered, xtra) = EntityEncoder[Multipart].encode(m)
-    HttpRequest(Method.POST, "/$batch", headers = headers ++ xtra, body = mrendered)
+  def mkBatch(m: Multipart[F], headers: HttpHeaders = HttpHeaders.empty): HttpRequest[F] = {
+    val (xtras, ent) = EntityEncoder[F, Multipart[F]].toEntity(m)
+    HttpRequest(Method.POST, "/$batch", headers = headers ++ xtras, body = ent)
   }
 }
-
-object odatarequests extends ODataRequests

@@ -6,7 +6,6 @@ package ttg.odata.client
 package http
 
 import scala.scalajs.js
-import scala.concurrent.{Future, ExecutionContext}
 import js.annotation._
 import fs2._
 import cats._
