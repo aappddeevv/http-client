@@ -16,7 +16,17 @@ import js.JSConverters._
 import scala.annotation.implicitNotFound
 import scala.collection.mutable
 
-//import dynamics.common._
+/**
+  * Superclass of requests and responses. Holds headers and a body
+  * at a minimum.
+  */
+trait Message[F[_]] extends MessageOps[F] {
+  def headers: HttpHeaders
+  def body: Entity[F]
+
+  override def attemptAs[T](implicit F: FlatMap[F], decoder: EntityDecoder[F, T]): DecodeResult[F, T] =
+    decoder.decode(this)
+}
 
 /**
   * Basic HTTP client code based mostly on http4s.
@@ -34,18 +44,6 @@ trait MessageOps[F[_]] extends Any {
   final def as[T](implicit F: FlatMap[F], decoder: EntityDecoder[F, T]): F[T] =
     //attemptAs(decoder).fold(F.raiseError(_), _.pure[F]).flatten
     attemptAs.fold(throw _, identity)
-}
-
-/**
-  * Superclass of requests and responses. Holds headers and a body
-  * at a minimum.
-  */
-trait Message[F[_]] extends MessageOps[F] {
-  def headers: HttpHeaders
-  def body: Entity
-
-  override def attemptAs[T](implicit F: FlatMap[F], decoder: EntityDecoder[F, T]): DecodeResult[F, T] =
-    decoder.decode(this)
 }
 
 object HttpHeaders {
@@ -98,7 +96,7 @@ case class HttpRequest[F[_]](
   method: Method,
   path: String,
   headers: HttpHeaders = HttpHeaders.empty,
-  body: Entity = Entity.empty)
+  body: Entity[F])
     extends Message[F]
 
 object HttpRequest {
@@ -109,7 +107,7 @@ object HttpRequest {
 case class HttpResponse[F[_]](
   status: Status,
   headers: HttpHeaders,
-  body: Entity) extends Message[F]
+  body: Entity[F]) extends Message[F]
 
 object HttpResponse {
   implicit def show[F[_]]: Show[HttpResponse[F]] = Show.fromToString  

@@ -9,13 +9,13 @@ object Dependencies {
   /** Dependencies that are jvm/js */
   val commonDependencies = Def.setting(Seq(
 
-    "org.scalatest"          %%% "scalatest"    % "latest.release" % "test",
+    "org.scalatest"          %%% "scalatest"    % "3.0.5" % "test", //% "3.2.0-SNAP10" % "test",
     "co.fs2" %%% "fs2-core" % "1.0.0",
     "org.typelevel" %%% "cats-core" % "1.4.0",
     "org.typelevel" %%% "cats-effect" % "1.0.0",
     "org.scala-js" %%% "scalajs-java-time" % "latest.version",
     "org.scala-sbt" % "test-interface" % "1.0",
-    "io.estatico" %% "newtype" % "0.4.0",
+    "io.estatico" %% "newtype" % "0.4.2",
   ))
 
   val cliDependencies = Def.setting(Seq(

@@ -41,7 +41,7 @@ trait NextLinkResponse[A] extends js.Object {
   * *not* under the "value" fieldname.
   */
 @js.native
-trait ValueArrayResponse[A <: js.Any] extends NextLinkResponse[A] {
+trait ValueArrayResponse[A <: scala.Any] extends NextLinkResponse[A] {
   val value: UndefOr[js.Array[A]] = js.native
 }
 
@@ -50,6 +50,6 @@ trait ValueArrayResponse[A <: js.Any] extends NextLinkResponse[A] {
   * returned in the field "value".
   */
 @js.native
-trait SingleValueResponse[A <: js.Any] extends js.Object {
+trait SingleValueResponse[A <: scala.Any] extends js.Object {
   val value: js.UndefOr[A] = js.native
 }

@@ -18,46 +18,83 @@ import js.JSConverters._
 import scala.annotation.implicitNotFound
 import scala.collection.mutable
 
-/** Simple encoder that encodes a value to a strict value. */
-@implicitNotFound("Cannot find instance of EntityEncoder[${A}].")
-trait EntityEncoder[A] { self =>
+/**
+ * Keep it simple, entity body is ultimately a string...skip streams for the
+ * body itself in this implementation. Length can be calculated directly from
+ * the string.
+ */
+final case class Entity[+F[_]](content: F[String])
 
-  /** Encode the body. Headers may be dependent on the body so they
-    * are returned at the same time to be added to the request.
-    */
-  def encode(a: A): (Entity, HttpHeaders)
+object Entity {
 
-  /** Create a new encoder from another encoder. */
-  def contramap[B](f: B => A): EntityEncoder[B] = new EntityEncoder[B] {
-    override def encode(a: B): (Entity, HttpHeaders) = self.encode(f(a))
-  }
+  implicit def entityMonoid[F[_]](implicit A: Applicative[F]): Monoid[Entity[F]] =
+    new Monoid[Entity[F]] {
+      def combine(l: Entity[F], r: Entity[F]): Entity[F] =
+        Entity((l.content,r.content).mapN(_ + _))
+      val empty: Entity[F] = Entity.empty[F]
+    }
+
+  def empty[F[_]: Applicative]: Entity[F] = Entity(Applicative[F].pure(""))
 }
 
-object EntityEncoder {
 
-  /** Summon a EntityDecoder from implicit scope. */
-  def apply[A](implicit enc: EntityEncoder[A]) = enc
+/** Simple encoder that encodes a value to a strict value. */
+@implicitNotFound("Cannot find instance of EntityEncoder[${A}].")
+trait EntityEncoder[F[_], A] { self =>
+
+  /** Encode the body. Headers could be dependent on the value, not just the decoder "type".  */
+  def toEntity(a: A): (HttpHeaders, Entity[F])
+
+  /** Create a new encoder from another encoder. */
+  def contramap[B](f: B => A): EntityEncoder[F, B] = new EntityEncoder[F, B] {
+    override def toEntity(b: B): (HttpHeaders, Entity[F]) = self.toEntity(f(b))
+  }
+
+}
+
+object EntityEncoder extends EntityEncoderInstances {
+  /** Summoner. */
+  def apply[F[_], A](implicit encoder: EntityEncoder[F,A]) = encoder
 }
 
 trait EntityEncoderInstances {
+  /** Create an encoder. Headers not dependent on the message body. */
+  def encodeBy[F[_], A](hs: HttpHeaders)(f: A => Entity[F]): EntityEncoder[F,A] =
+    new EntityEncoder[F, A] {
+      override def toEntity(a: A) = (hs,f(a))
+    }
 
-  implicit val StringEncoder: EntityEncoder[String] = new EntityEncoder[String] {
-    def encode(a: String) = (IO.pure(a), HttpHeaders.empty)
-  }
+  /** Create an encoder. */
+  def encodeBy[F[_], A](f: A => (HttpHeaders, Entity[F])): EntityEncoder[F,A] = 
+    new EntityEncoder[F, A] {
+      override def toEntity(a: A) = f(a)
+    }
+
+  def emptyEncoder[F[_]: Applicative,A]: EntityEncoder[F,A] =
+    new EntityEncoder[F,A] {
+      def toEntity(a: A) = (HttpHeaders.empty, Entity.empty[F])
+    }
+
+  implicit def unitEncoder[F[_]: Applicative]: EntityEncoder[F, Unit] =
+    emptyEncoder[F, Unit]
+
+  implicit def stringEncoder[F[_]: Applicative]: EntityEncoder[F, String] =
+    encodeBy(HttpHeaders.empty)(s => Entity(Applicative[F].pure(s)))
 
   /** scalajs specific */
-  implicit val JsDynamicEncoder: EntityEncoder[js.Dynamic] = new EntityEncoder[js.Dynamic] {
-    def encode(a: js.Dynamic) = (IO.pure(js.JSON.stringify(a)), HttpHeaders.empty)
-  }
+  implicit def jsObjectEncoder[F[_]: Applicative, A <: js.Object]: EntityEncoder[F, A] =
+    stringEncoder[F].contramap[A](a => js.JSON.stringify(a))
 
   /** scalajs specific */
-  def JsObjectEncoder[A <: js.Object]: EntityEncoder[A] = new EntityEncoder[A] {
-    def encode(a: A) = (IO.pure(js.JSON.stringify(a)), HttpHeaders.empty)
-  }
+  implicit def jsDynamicEncoder[F[_]: Applicative]: EntityEncoder[F,js.Dynamic] =
+    stringEncoder[F].contramap[js.Dynamic](js.JSON.stringify(_))
 
-  /** Implicitly encode anything that is a `js.Object`. */
-  implicit val jsObjectEncoder = JsObjectEncoder[js.Object]
-
-  /** Explicit lower order priority implicit on `js.Object` subclasses. */
-  implicit def defaultEncoder[A <: js.Object] = JsObjectEncoder[A]
+  /** Multitpart encoder. */
+  implicit def multipartEntityEncoder[F[_]: Traverse: Monad]: EntityEncoder[F,Multipart[F]] =
+    encodeBy{ m => 
+      (
+        HttpHeaders.empty ++ Map("Content-Type" -> Seq(Multipart.MediaType, "boundary=" + m.boundary.value)),
+        Entity(Multipart.render(m))
+      )
+    }
 }

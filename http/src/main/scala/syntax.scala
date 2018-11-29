@@ -22,49 +22,32 @@ trait DecodeResultSyntax {
     DecodeResultOps(dr)
 }
 
-final case class EntityEncoderOps[A](a: A) extends AnyVal {
-  def toEntity(implicit encoder: EntityEncoder[A]): (Entity, HttpHeaders) = encoder.encode(a)
-}
-
-trait EntityEncoderSyntax {
-  implicit def entityEncoderOpsSyntax[A](a: A): EntityEncoderOps[A] = EntityEncoderOps[A](a)
-}
-
 final case class MultipartOps[F[_]](r: HttpRequest[F]) {
   def toPart = SinglePart(r)
 }
 
 trait MultipartSyntax {
-  implicit def httpRequestToOps[F[_]](r: HttpRequest[F]): MultipartOps[F] = MultipartOps(r)
+  implicit def multiartOpsSyntax[F[_], T](r: HttpRequest[F]) = MultipartOps(r)
 }
 
-trait MultipartInstances {
-  implicit def multipartEntityEncoder: EntityEncoder[Multipart] =
-    new EntityEncoder[Multipart] {
-      def encode(m: Multipart) =
-        (Multipart.render(m),
-         HttpHeaders.empty ++ Map("Content-Type" -> Seq(Multipart.MediaType, "boundary=" + m.boundary.value)))
-    }
-}
-
-trait AllSyntax extends MultipartSyntax with EntityEncoderSyntax with DecodeResultSyntax
+trait AllSyntax
+    extends DecodeResultSyntax
+    with MultipartSyntax
 
 object syntax {
   object all           extends AllSyntax
-  object multipart     extends MultipartSyntax
-  object entityencoder extends EntityEncoderSyntax
   object decoderesult  extends DecodeResultSyntax
+  object multipart extends MultipartSyntax
 }
 
 trait AllInstances
-    extends MultipartInstances
-    with EntityEncoderInstances
+    extends EntityEncoderInstances
     with EntityDecoderInstances
     with MethodInstances
 
 object instances {
   object all           extends AllInstances
-  object entityencoder extends EntityEncoderInstances with MultipartInstances
+  object entityencoder extends EntityEncoderInstances
   object entitydecoder extends EntityDecoderInstances
   object method        extends MethodInstances
 }

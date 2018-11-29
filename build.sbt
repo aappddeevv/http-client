@@ -26,6 +26,7 @@ lazy val buildSettings = Seq(
   licenses ++= Seq(("MIT", url("http://opensource.org/licenses/MIT"))),
   scalaVersion := "2.12.7",
   scalaModuleInfo ~= (_.map(_.withOverrideScalaVersion(true))),
+  parallelExecution in Test := false
 ) ++ licenseSettings
 
 lazy val noPublishSettings = Seq(
@@ -50,7 +51,7 @@ lazy val commonSettings = Seq(
     (Dependencies.commonDependencies.value ++
       Dependencies.myJSDependencies.value),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8"),
-  addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
+  addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
 )
 
 lazy val dynamicsSettings = buildSettings ++ commonSettings
