@@ -10,37 +10,39 @@ import js.annotation._
 
 import http._
 
-import http.instances.entityencoder._
-import http.instances.entitydecoder._
+/** 
+ * Request creation may involve "client" specific extensions to how OData
+ * headers are created so we expose that explicitly and make it easier to
+ * compose with other traits by switching from type parameters to abstract
+ * types. Create OData HTTP requests given various input parameters.  We are
+ * uneven in the use of key and where they are rendered in this algebra or
+ * before this algebra is used. A renderer to render the RequestOptions type is
+ * required and hence recursively, a renderer for Prefer values.
+ */
+trait ClientRequests[F[_]] {
+  self: ClientIdRenderer with ClientFConstraints[F] =>
+  type PreferOptions <: BasicPreferOptions
+  type RequestOptions <: BasicRequestOptions[PreferOptions]
 
-/** Create OData HTTP requests given various input parameters. */
-trait ODataRequests[F[_], PO <: BasicPreferOptions, RO <: RequestOptions[PO]] {
+  /** Renderer for `RequestOptions`. */
+  val optRenderer: HeaderRenderer[RequestOptions]
+  val emptyBody: Entity[F] = Entity.empty[F]
 
-  /** Renderer for `RO`. */
-  val roRenderer: HeaderRenderer[RO]
-  val emptyBody: Entity[F]
-
-
-  val DefaultBatchRequest = HttpRequest(Method.PUT, "/$batch", emptyBody)
+  val DefaultBatchRequest = HttpRequest(Method.PUT, "/$batch", body=emptyBody)
 
   /**
     * This does not handle the version tag + applyOptimisticConcurrency flag yet.
     */
-  def toHeaders(o: Option[RO]): HttpHeaders = {
-    val prefer = o.fold(EmptyHeaders)(roRenderer.render(_))
-    prefer.map(str => HttpHeaders("Prefer"        -> str)).getOrElse(HttpHeaders.empty) ++
-      o.user.map(u => HttpHeaders("MSCRMCallerId" -> u)).getOrElse(HttpHeaders.empty) ++
-      (
-        if (o.suppressDuplicateDetection) headers.SuppressDuplicateDetection
-        else HttpHeaders.empty
-      )
+  def toHeaders(o: Option[RequestOptions]): HttpHeaders = {
+    o.fold(HttpHeaders.empty)(optRenderer(_))
+    //prefer.map(str => HttpHeaders("Prefer"        -> str)).getOrElse(HttpHeaders.empty)
     //++ o.version.map(etag => HttpHeaders("If-None-Match" -> etag)).getOrElse(HttpHeaders.empty)
   }
 
-  def mkGetListRequest(url: String, opts: Option[RO] = None) =
+  def mkGetListRequest(url: String, opts: Option[RequestOptions] = None) =
     HttpRequest[F](Method.GET, url, headers = toHeaders(opts), emptyBody)
 
-  def mkCreateRequest[B](entitySet: String, body: B, opts: Option[RO] = None)(
+  def mkCreateRequest[B](entitySet: String, body: B, opts: Option[RequestOptions] = None)(
       implicit e: EntityEncoder[F,B]) = {
     // HttpRequest(Method.POST, s"/$entitySet", body = Entity.fromString(body), headers = toHeaders(opts))
     val (xtras, ent) = e.toEntity(body)
@@ -48,23 +50,25 @@ trait ODataRequests[F[_], PO <: BasicPreferOptions, RO <: RequestOptions[PO]] {
   }
 
   /** Make a pure delete request. */
-  def mkDeleteRequest(entitySet: String, keyInfo: ODataId, opts: Option[RO] = None) = {
-    val etag =
-      if (opts.applyOptimisticConcurrency.getOrElse(false) && opts.version.isDefined)
-        HttpHeaders("If-Match" -> opts.version.get)
+  def mkDeleteRequest(entitySet: String, key: ODataId, opts: Option[RequestOptions] = None) = {
+    val etag = opts.fold(HttpHeaders.empty){o =>
+      if (o.applyOptimisticConcurrency.getOrElse(false) && o.version.isDefined)
+        HttpHeaders("If-Match" -> o.version.get)
       else HttpHeaders.empty
-    HttpRequest[F](Method.DELETE, s"/$entitySet(${keyInfo.render()})", headers = toHeaders(opts))
+    }
+    HttpRequest[F](Method.DELETE, s"/$entitySet(${renderId(key)})", headers = toHeaders(opts) ++ etag,
+      body = emptyBody)
   }
 
-  def mkGetOneRequest(url: String, opts: Option[RO] = None) = {
-    val etag = opts.version.map(etag => HttpHeaders("If-None-Match" -> etag)).getOrElse(HttpHeaders.empty)
+  def mkGetOneRequest(url: String, opts: Option[RequestOptions] = None) = {
+    val etag = opts.flatMap(_.version.map(etag => HttpHeaders("If-None-Match" -> etag))).getOrElse(HttpHeaders.empty)
     HttpRequest[F](Method.GET, url, headers = toHeaders(opts) ++ etag, emptyBody)
   }
 
   def mkExecuteActionRequest[A](action: String,
     body: A,
     entitySetAndId: Option[(String, String)] = None,
-    opts: Option[RO] = None)(
+    opts: Option[RequestOptions] = None)(
     implicit E: EntityEncoder[F, A]) = {
     val url = entitySetAndId.map { case (c, i) => s"/$c($i)/$action" }.getOrElse(s"/$action")
     val (hdrs, ent) = E.toEntity(body)
@@ -81,13 +85,15 @@ trait ODataRequests[F[_], PO <: BasicPreferOptions, RO <: RequestOptions[PO]] {
     toEntitySet: String,
     toEntityId: String,
     base: String,
-    singleValuedNavProperty: Boolean = true): HttpRequest[F] = {
+    singleValuedNavProperty: Boolean = true)(
+    implicit enc: EntityEncoder[F,String]
+  ): HttpRequest[F] = {
     val url  = s"/${fromEntitySet}(${fromEntityId})/$navProperty/$$ref"
     val body = s"""{"@odata.id": "$base/$toEntitySet($toEntityId)"}"""
     val method =
       if (singleValuedNavProperty) Method.PUT
       else Method.POST
-    val (xtras, ent) = EntityEncoder[F,String].toEntity(body)
+    val (xtras, ent) = enc.toEntity(body)
     HttpRequest(method, url, body = ent)
   }
 
@@ -115,7 +121,7 @@ trait ODataRequests[F[_], PO <: BasicPreferOptions, RO <: RequestOptions[PO]] {
     body: B,
     upsertPreventCreate: Boolean = true,
     upsertPreventUpdate: Boolean = false,
-    options: Option[RO] = None,
+    options: Option[RequestOptions] = None,
     base: Option[String] = None)(implicit enc: EntityEncoder[F,B]): HttpRequest[F] = {
     val (xtra, ent) = enc.toEntity(body)
     val h1 =
@@ -125,15 +131,17 @@ trait ODataRequests[F[_], PO <: BasicPreferOptions, RO <: RequestOptions[PO]] {
       if (upsertPreventUpdate) HttpHeaders("If-None-Match" -> "*")
       else HttpHeaders.empty
     // this may override If-Match! */
-    val h3 =
-      if (options.applyOptimisticConcurrency.getOrElse(false) && options.version.isDefined)
-        HttpHeaders("If-Match" -> options.version.get)
-      else
-        HttpHeaders.empty
+    val h3 = 
+      options.fold(HttpHeaders.empty)(opts =>
+        if (opts.applyOptimisticConcurrency.getOrElse(false) && opts.version.isDefined)
+          HttpHeaders("If-Match" -> opts.version.get)
+        else
+          HttpHeaders.empty
+      )
     val mustHave = HttpHeaders.empty ++ Map("Content-Type" -> Seq("application/json", "type=entry"))
     HttpRequest(Method.PATCH,
-                s"${base.getOrElse("")}/$entitySet($id)",
-                toHeaders(options) ++ h1 ++ h2 ++ h3 ++ xtra ++ mustHave,
+      s"${base.getOrElse("")}/$entitySet($id)",
+      toHeaders(options) ++ h1 ++ h2 ++ h3 ++ xtra ++ mustHave,
       ent)
   }
 
@@ -162,15 +170,17 @@ trait ODataRequests[F[_], PO <: BasicPreferOptions, RO <: RequestOptions[PO]] {
   }
 
   /** @depecated. Use `mkBatch`. */
-  def mkBatchRequest[A](headers: HttpHeaders, m: Multipart[F]): HttpRequest[F] = mkBatch(m, headers)
+  def mkBatchRequest[A](headers: HttpHeaders, m: Multipart[F])(
+  implicit enc: EntityEncoder[F,Multipart[F]]): HttpRequest[F] = mkBatch(m, headers)
 
   /**
     * Body in HttpRequest is ignored and is instead generated from m.
     * Since the parts will have requests, you need to ensure that the
     * base URL used in those requests have a consistent base URL.
     */
-  def mkBatch(m: Multipart[F], headers: HttpHeaders = HttpHeaders.empty): HttpRequest[F] = {
-    val (xtras, ent) = EntityEncoder[F, Multipart[F]].toEntity(m)
+  def mkBatch(m: Multipart[F], headers: HttpHeaders = HttpHeaders.empty)(
+    implicit enc: EntityEncoder[F,Multipart[F]]): HttpRequest[F] = {
+    val (xtras, ent) = enc.toEntity(m)
     HttpRequest(Method.POST, "/$batch", headers = headers ++ xtras, body = ent)
   }
 }

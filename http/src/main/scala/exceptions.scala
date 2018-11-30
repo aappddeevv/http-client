@@ -47,7 +47,7 @@ final case class CommunicationsFailure(details: String, val cause: Option[Throwa
 }
 
 /** Error for a Client when decoding of a returned message fails. */
-sealed abstract class DecodeFailure extends MessageFailure {
+abstract class DecodeFailure extends MessageFailure {
   def cause: Option[Throwable]     = None
   override def getCause: Throwable = cause.orNull
 }
@@ -60,8 +60,4 @@ final case class MessageBodyFailure(details: String, override val cause: Option[
 final case class MissingExpectedHeader(details: String, override val cause: Option[Throwable] = None)
     extends DecodeFailure {
   def message: String = s"Expected header: $details"
-}
-
-final case class OnlyOneExpected(details: String, override val cause: Option[Throwable] = None) extends DecodeFailure {
-  def message: String = s"Expected one: $details"
 }

@@ -8,6 +8,7 @@ import io.estatico.newtype.macros.newtype
 import scala.scalajs.js
 import js.|
 import dynamics.common.Utils.{merge}
+import ttg.scalajs.common.JSDataHelpers
 
 
 package object client {
@@ -35,7 +36,7 @@ package object client {
   val zeroGUID = "00000000-0000-0000-0000-000000000000"
 
     /**
-    * Remap some OData response artifacts if found. Note that if O is a
+    * Remap OData response artifacts if found. Note that if O is a
     * non-native JS trait, you may want to ensure that you "add" attributes to
     * your trait that match the conventions specified so you can access the
     * attributes directly later. Mapping function is (attribute name) => (mapped
@@ -60,6 +61,13 @@ package object client {
 
   /** Remove any attribute that has a `@` annotation in its name. */
   def dropODataFields[O <: js.Object](obj: O, patterns: Seq[String] = defaultODataToOmit): O =
-    dynamics.common.jsdatahelpers.omitIfMatch(obj.asInstanceOf[js.Dictionary[js.Any]], patterns).asInstanceOf[O]
+    JSDataHelpers.omitIfMatch(obj.asInstanceOf[js.Dictionary[js.Any]], patterns).asInstanceOf[O]
 
+  /** Cast to CodeMessage if "code" is defined on the object. */
+  def maybeError[CM <: CodeMessage]: PartialFunction[js.Object, CM] =
+  {
+    case err@_ if(
+      js.Object.hasOwnProperty("error") &&
+        js.Object.hasOwnProperty("message")) => err.asInstanceOf[CM]
+  }
 }

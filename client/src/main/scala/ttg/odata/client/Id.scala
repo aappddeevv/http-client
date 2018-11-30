@@ -17,20 +17,20 @@ object AltId {
   def apply(e: String, id: String): AltId = AltId(Seq((e, id)))
 }
 
-trait ODataIdRenderable[A <: ODataId] {
+trait IdRenderer[A <: ODataId] {
   def render(id: A): String
 }
 
-object ODataIdRenderable extends ODataIdRenderableInstances {
-  def apply[A <: ODataId](implicit r: ODataIdRenderable[A]) = r
+object IdRenderer extends IdRenderableInstances {
+  def apply[A <: ODataId](implicit r: IdRenderer[A]) = r
 }
 
-trait ODataIdRenderableInstances {
-  implicit val idRenderable = new ODataIdRenderable[Id] {
-    def render(id: Id) = id.name.map(n => s"$n = $id").getOrElse(id.name)
+trait IdRenderableInstances {
+  implicit val idRenderable = new IdRenderer[Id] {
+    def render(id: Id) = id.name.map(n => s"$n = $id").getOrElse(id.id)
   }
   
-  implicit val altIdRenderable = new ODataIdRenderable[AltId] {
+  implicit val altIdRenderable = new IdRenderer[AltId] {
     def render(id: AltId) = id.parts.map(p => s"${p._1} = ${p._2}").mkString(",")
   }  
 }

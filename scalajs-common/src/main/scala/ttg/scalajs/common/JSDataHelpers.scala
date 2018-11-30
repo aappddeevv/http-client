@@ -153,20 +153,31 @@ object JSDataHelpers {
     * that mutates a js.Object. This parses the "dsl" and returns a function to
     * perform the conversion without needing to reparse the "dsl".
     */
-  def stdConverter(keeps: Option[String], drops: Option[String], renames: Option[String]): js.Object => js.Object = {
-    val keep = keeps.map(_.split('|').map(_.trim))
-    val drop = drops.map(_.split('|').map(_.trim))
-    val rename: Option[Seq[(String, String)]] =
+  def stdConverter(
+    keeps: Option[String] = None,
+    drops: Option[String] = None,
+    renames: Option[String] = None): js.Object => js.Object = {
+    val k = keeps.map(_.split('|').toSeq.map(_.trim))
+    val d = drops.map(_.split('|').toSeq.map(_.trim))
+    val r: Option[Seq[(String, String)]] =
       renames.map(_.split('|').map(_.split("->")).map(arr => (arr(0).trim, arr(1).trim)))
-
-    obj =>
-      {
-        val o = obj.asAnyDict
-        drop.foreach(omit(o, _: _*))
-        rename.foreach(JSDataHelpers.rename(o, _: _*))
-        keep.foreach(keepOnly(o, _: _*))
-        obj
-      }
+    mutate(k, d, r)
   }
+
+  /** Mutate an object. Use `Option` for parameters instead of `Nil` to short
+   * circuit a few function calls.
+   */
+  @inline
+  def mutate(
+    keeps: Option[Seq[String]] = None,
+    drops: Option[Seq[String]] = None,
+    renames: Option[Seq[(String,String)]] = None): js.Object => js.Object =
+    obj => {
+        val o = obj.asAnyDict
+        drops.foreach(omit(o, _: _*))
+        renames.foreach(JSDataHelpers.rename(o, _: _*))
+        keeps.foreach(keepOnly(o, _: _*))
+        obj
+    }
 
 }

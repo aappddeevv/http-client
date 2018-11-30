@@ -148,9 +148,9 @@ final class QuerySpecOps(val spec: QuerySpec) extends AnyVal {
     * Convert Query spec to a URL. You must specify the entity set name and key
     * that it applies to as the first navigation property.
     */
-  def url(name: String, keyInfo: Option[String] = None) = {
+  def url(name: String, key: Option[String] = None) = {
     val rest       = QuerySpec.render(spec)
-    val keyInfoStr = keyInfo.map(ki => s"($ki)").getOrElse("")
+    val keyInfoStr = key.map(ki => s"($ki)").getOrElse("")
     s"""/${name}${keyInfoStr}${rest}"""
   }
 

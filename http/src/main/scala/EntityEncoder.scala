@@ -53,7 +53,7 @@ trait EntityEncoder[F[_], A] { self =>
 
 object EntityEncoder extends EntityEncoderInstances {
   /** Summoner. */
-  def apply[F[_], A](implicit encoder: EntityEncoder[F,A]) = encoder
+  def apply[F[_], A](implicit encoder: EntityEncoder[F,A]): EntityEncoder[F,A] = encoder
 }
 
 trait EntityEncoderInstances {
