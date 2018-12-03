@@ -110,7 +110,7 @@ object EntityDecoder extends EntityDecoderInstances {
   def instance[F[_], T](run: Message[F] => DecodeResult[F, T]): EntityDecoder[F, T] =
     new EntityDecoder[F, T] {
       def decode(response: Message[F]) = run(response)
-    }
+    }  
 }
 
 /**
@@ -118,32 +118,7 @@ object EntityDecoder extends EntityDecoderInstances {
   * decoding process. Currently tied to `IO`.
   */
 trait EntityDecoderInstances {
-
-  /** Dates from dynamics server. (js regexp) */
-  protected val dateRegex =
-    new js.RegExp("""^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$""")
-
-  /** JSON reviver that matches nothing. */
-  val undefinedReviver = js.undefined.asInstanceOf[Reviver]
-
-  /** JSON Date reviver based on ISO string format `dateRegex`. (js) */
-  val dateReviver: Reviver =
-    (key, value) => {
-      if (js.typeOf(value) == "string") {
-        val a = dateRegex.exec(value.asInstanceOf[String])
-        if (a != null)
-          new js.Date(
-            js.Date.UTC(
-              a(1).get.toInt,
-              a(2).get.toInt - 1,
-              a(3).get.toInt,
-              a(4).get.toInt,
-              a(5).get.toInt,
-              a(6).get.toInt
-            ))
-        else value
-      } else value
-    }
+  import ttg.scalajs.common._
 
   /**
     * Decode body to text. Since the body in a response is already text this is
@@ -159,18 +134,22 @@ trait EntityDecoderInstances {
     * value, not a JS object. Having said that, all response bodies (for valid
     * responses) from the server are objects.
     */
-  implicit def JSONDecoder[F[_]: Functor](reviver: Option[Reviver] = None): EntityDecoder[F, js.Dynamic] =
+  def jsDynamicDecoder[F[_]: Functor](
+    reviver: Option[Reviver] = None): EntityDecoder[F, js.Dynamic] =
     EntityDecoder.instance[F, js.Dynamic](
       msg => DecodeResult.success(Functor[F].map(msg.body.content)(js.JSON.parse(_, reviver.orUndefined.orNull)))
     )
 
+  implicit def JsDynamicDecoder[F[_]: Functor]: EntityDecoder[F, js.Dynamic] =
+    jsDynamicDecoder()
+
   /** Filter on JSON value. Create DecodeFailure if filter func returns false. */
-  def JSONDecoderValidate[F[_]: Monad](
+  def JsonDecoderValidate[F[_]: Monad](
     f: js.Dynamic => Boolean,
     failedMsg: String = "Failed validation.",
     reviver: Option[Reviver] = None): EntityDecoder[F, js.Dynamic] =
     EntityDecoder.instance{ msg =>
-      JSONDecoder(reviver).decode(msg).flatMap { v =>
+      jsDynamicDecoder(reviver).decode(msg).flatMap { v =>
         if (f(v)) EitherT.rightT(v)
         else EitherT.leftT(MessageBodyFailure(failedMsg))
       }
@@ -181,8 +160,15 @@ trait EntityDecoderInstances {
     * the body to js.Dynamic. Typebounds implies that non-native scala JS traits
     * can use this decoder.
     */
-  implicit def JsObjectDecoder[F[_]: Functor, A <: js.Object](reviver: Option[Reviver] = None): EntityDecoder[F, A] =
-    JSONDecoder(reviver).map(_.asInstanceOf[A])
+  def jsObjectDecoder[F[_]: Functor, A <: js.Object](
+    reviver: Option[Reviver] = None): EntityDecoder[F, A] =
+    jsDynamicDecoder(reviver).map(_.asInstanceOf[A])
+
+  /**
+   * Decode a js.Object => A. 
+   */
+  implicit def JsObjectDecoder[F[_]: Functor, A <: js.Object]: EntityDecoder[F,A] =
+    jsObjectDecoder()
 
   /**
     * Ignore the response completely (status and body) and return decode "unit"

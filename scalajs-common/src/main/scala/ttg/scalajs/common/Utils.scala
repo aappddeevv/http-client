@@ -16,7 +16,7 @@ import cats.implicits._
 
 object Utils {
 
-  /** Add minutes to a date. */
+  /** Add minutes to a js.Date. */
   def addMinutes(d: js.Date, n: Int): js.Date =
     new js.Date(d.getTime() + (n * 60 * 1000))
 
@@ -52,7 +52,9 @@ object Utils {
   /**
     * Given a sequence of data items and related "use these strings for
     * comparison" values, return the data items that matched. If filters is
-    * empty, every item matches.
+    * empty, every item matches. The idea is to match on some values then return
+    * the "keys" for where matches occurred. The input values often come from a
+    * groupby.
     */
   def filterForMatches[A](wr: Traversable[(A, Seq[String])], filters: Traversable[String] = Nil): Seq[A] = {
     val counter = matchCount(filters)
@@ -66,9 +68,8 @@ object Utils {
       .map(_._1)
   }
 
-  /** Return the tail of the path from the prefix forward.
-    * It does not matter if the prefix is a directory segment
-    * or part of a filename.
+  /** Return the tail of the path from the prefix forward.  It does not matter if
+    * the prefix is a directory segment or part of a filename.
     */
   def stripUpTo(path: String, prefix: String): String = {
     val idx = path.indexOf(prefix)
@@ -79,7 +80,8 @@ object Utils {
   /**
     * This is really just a Semigroup "combine" operation but it does *not* use
     * "combine" at lower levels of the structure i.e. a shallow copy. Last
-    * object's fields wins. Handles null inputs.
+    * object's fields wins. Handles null inputs. Not sure thihs is named
+    * correctly should be mergeJSDynamic :-).
     *
     * @see https://stackoverflow.com/questions/36561209/is-it-possible-to-combine-two-js-dynamic-objects
     */
@@ -120,4 +122,9 @@ object Utils {
   def strip(in: String): String =
     in.replaceAll("[\\p{Cntrl}&&[^\n\t\r]]", "").replaceAll("\\P{InBasic_Latin}", "")
 
+  def parseJson[A](content: String, reviver: Option[Reviver]=None) =
+    js.JSON.parse(content, reviver.getOrElse(undefinedReviver)).asInstanceOf[A]
+
+  def parseJsonWithDates[A](content: String, reviver: Reviver = dateReviver): A =
+    parseJson(content, Option(dateReviver))
 }

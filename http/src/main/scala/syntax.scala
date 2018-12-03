@@ -11,9 +11,12 @@ import cats.data._
 import cats.implicits._
 import cats.effect._
 
-final case class DecodeResultOps[F[_], T](val dr: DecodeResult[F, T])(implicit F: MonadError[F, Throwable]) {
+final case class DecodeResultOps[F[_], T](val dr: DecodeResult[F, T])(
+  implicit F: MonadError[F, Throwable]) {
 
-  /** Flatten `EitherT[F,DecodeFailure,T]`. Push any DecodeFailure as the error into a `F[T]`. */
+  /** Flatten `EitherT[F,DecodeFailure,T]`. Push any DecodeFailure as the error
+   * into a `F[T]`.
+   */
   def toF: F[T] = F.flatten(dr.fold(F.raiseError, F.pure))
 }
 

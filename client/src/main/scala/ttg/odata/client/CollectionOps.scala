@@ -23,14 +23,14 @@ trait ClientStreamOps[F[_]] {
   // move from call site to declaration site
   implicit protected val compiler: Stream.Compiler[F,F]
 
-  private type XX[A] = (Seq[A], Option[String])
+  private type XX[A] = (js.Array[A], Option[String])
 
   /**
     * Get a list of values as a stream. Follows @odata.nextLink. For now, the
     * caller must decode external to this method.
     */
-  protected def getListAsStream[A <: js.Any](url: String, headers: HttpHeaders): Stream[F, A] = {
-    val str: Stream[F, Seq[A]] = Stream.unfoldEval(Option(url)) {
+  protected def getListAsStream[A](url: String, headers: HttpHeaders): Stream[F, A] = {
+    val str: Stream[F, js.Array[A]] = Stream.unfoldEval(Option(url)) {
       _ match {
         // Return a F[Option[(Seq[A],Option[String])]]
         case Some(nextLink) =>
@@ -40,8 +40,8 @@ trait ClientStreamOps[F[_]] {
               F.map(resp.body.content){ str =>
                 val odata = js.JSON.parse(str).asInstanceOf[ValueArrayResponse[A]]
                 // if (logger.isDebugEnabled())
-                //   logger.debug(s"getListStream: body=$str\nodata=${PrettyJson.render(odata)}")
-                val a = odata.value.map(_.toSeq) getOrElse Seq()
+                //   logger.debug(s"getListStream: body=$str\nodata=${PrettyJson.render(odata)}"
+                val a = odata.value getOrElse js.Array()
                 //println(s"getList: a=$a,\n${PrettyJson.render(a(0).asInstanceOf[js.Object])}")
                 Option((a, odata.nextLink.toOption))
               }
@@ -51,8 +51,8 @@ trait ClientStreamOps[F[_]] {
         case None => F.pure(Option.empty[XX[A]])
       }
     }
-    // Flatten the seq chunks from each unfold iteration
-    str.flatMap(Stream.emits)
+    // Flatten the array (converted to seq) chunks from each unfold iteration
+    str.map(_.toSeq).flatMap(Stream.emits)
   }
 }
 

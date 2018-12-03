@@ -21,7 +21,7 @@ import client.http._
 import ttg.scalajs.common.implicits._
 
 /** Fix some of the header conversions...need to use getAll. */
-object BrowserFetch {
+object ClientUtils {
 
   /** Combine headers, return a newly allocated Header. `append` vs `set` is used.
    */
@@ -63,18 +63,19 @@ object BrowserFetch {
 }
 
 /**
- * Client based on browser `fetch`.
+ * Client based on browser `fetch`. Why is dataUrl an option, are we accessing the 
+ * window document's location URL for a default?
  * 
  * @see https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/fetch
  */
-object BrowserFetchClient{ 
-  import BrowserFetch._
+object Client { 
+  import ClientUtils._
 
-  def create[F[_]](
+  def apply[F[_]](
     dataUrl: Option[String],
     baseRequestInit: Option[RequestInit] = None)(
     implicit F: MonadError[F, Throwable], A: Async[F]
-  ): Client[F] = {
+  ): http.Client[F] = {
     val base = dataUrl.map(u => if(u.endsWith("/")) u.dropRight(1) else u).getOrElse("")
 
     val svc: HttpRequest[F] => F[HttpResponse[F]] = { request =>
@@ -104,6 +105,6 @@ object BrowserFetchClient{
         }
       }
     }
-    Client(svc)
+    http.Client(svc)
   }
 }

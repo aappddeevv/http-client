@@ -90,7 +90,6 @@ object Method {
 }
 
 trait MethodInstances {
-
   implicit val showForMethod: Show[Method] = Show.fromToString
 }
 
@@ -106,13 +105,23 @@ case class HttpRequest[F[_]](
 
 object HttpRequest {
   implicit def show[F[_]]: Show[HttpRequest[F]] = Show.fromToString
+
+  /** Convert a request to a response with a specific status. */
+  def toResponse[F[_]](request: HttpRequest[F], status: Status = Status.OK): HttpResponse[F] =
+    HttpResponse(
+      status = status,
+      headers = request.headers,
+      body = request.body,
+      tags = request.tags
+    )
 }
 
 /** HTTP response. */
 case class HttpResponse[F[_]](
   status: Status,
   headers: HttpHeaders,
-  body: Entity[F]) extends Message[F]
+  body: Entity[F],
+  tags: Map[String, scala.Any] = Map()) extends Message[F]
 
 object HttpResponse {
   implicit def show[F[_]]: Show[HttpResponse[F]] = Show.fromToString  

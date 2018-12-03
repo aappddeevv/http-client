@@ -17,7 +17,8 @@ import cats.implicits._
  * more nuanced error handling. Since this layer can detect an unexpected status
  * and error on that condition, implementations must provide that method.
  * 
- * Based directly on http4s design. It's really a Kleisli.
+ * Based directly on http4s design. It's really a `Kleisli. `Client` is really a
+ * wrapper around a function `Request => F[Response]`.
  */
 trait Client[F[_]] {
   def run(req: HttpRequest[F]): F[HttpResponse[F]]
@@ -74,7 +75,11 @@ object Client {
         mkStatusError(req,resp)
     }
 
-  /** Use the super simple `UnexpectedHttpStatus` exception for the status error. */
+  /**
+   * Use the super simple `UnexpectedHttpStatus` exception for the status error.
+   * Unless you are only using the HTTP layer, you'll want to customize a client
+   * with your own unexpected status exception.
+   */
   def apply[F[_]](f: HttpRequest[F] => F[HttpResponse[F]])(
     implicit M: MonadError[F,Throwable]): Client[F] =
     new DefaultClient[F] {
@@ -82,74 +87,8 @@ object Client {
       def defaultOnError(req: HttpRequest[F], resp: HttpResponse[F]) =
         M.pure(new UnexpectedHttpStatus(resp.status))
     }
-}
 
-private[http]
-  abstract class DefaultClient[F[_]](implicit F: MonadError[F, Throwable]) extends Client[F] {
-
-  /** The "default" onError implementations must supply an error for unexpected
-   * status. If you have an exception object use
-   * `M.pure(YourStatusException(resp.status))` to create an error where `M` is
-   * a `MonadError` or `ApplicativeError`.
-   */
-  def defaultOnError(req: HttpRequest[F], resp: HttpResponse[F]): F[Throwable]    
-
-  def fetch[A](request: HttpRequest[F])(f: HttpResponse[F] => F[A]): F[A] =
-    run(request).flatMap(f)
-
-  def fetch[A](request: F[HttpRequest[F]])(f: HttpResponse[F] => F[A]): F[A] =
-    request.flatMap(fetch(_)(f))
-
-  def expectOr[A](req: HttpRequest[F])(onError: (HttpRequest[F], HttpResponse[F]) => F[Throwable])(
-      implicit d: EntityDecoder[F, A]): F[A] = {
-    fetch(req) {
-      case Status.Successful(resp) =>
-        d.decode(resp).fold(throw _, identity)
-      case failedResponse =>
-        onError(req, failedResponse).flatMap(F.raiseError)
-    }
-  }
-
-  def expectOr[A](req: F[HttpRequest[F]])(onError: (HttpRequest[F], HttpResponse[F]) => F[Throwable])(
-    implicit d: EntityDecoder[F, A]): F[A] =
-    req.flatMap(expectOr(_)(onError))
-  
-  def expect[A](req: HttpRequest[F])(implicit d: EntityDecoder[F, A]): F[A] =
-    expectOr(req)(defaultOnError)
-
-  def expect[A](req: F[HttpRequest[F]])(implicit d: EntityDecoder[F, A]): F[A] =
-    expectOr(req)(defaultOnError)
-
-  def fetchAs[A](req: HttpRequest[F])(implicit d: EntityDecoder[F, A]): F[A] =
-    fetch(req) { resp =>
-      d.decode(resp).fold(throw _, identity)
-    }
-
-  def fetchAs[A](req: F[HttpRequest[F]])(implicit d: EntityDecoder[F, A]): F[A] =
-    req.flatMap(fetchAs(_)(d))
-
-  def status(req: HttpRequest[F]): F[Status] =
-    fetch(req)(resp => F.pure(resp.status))
-
-  def status(req: F[HttpRequest[F]]): F[Status] = req.flatMap(status)
-
-  def stream[A](req: HttpRequest[F]): Stream[F, HttpResponse[F]] =
-    Stream.eval(run(req))
-
-  @deprecated("Use stream", "0.1.0")
-  def streaming[A](req: HttpRequest[F])(f: HttpResponse[F] => Stream[F, A]): Stream[F, A] =
-    stream(req).flatMap(f)
-
-  @deprecated("Use stream", "0.1.0")
-  def streaming[A](req: F[HttpRequest[F]])(f: HttpResponse[F] => Stream[F, A]): Stream[F, A] =
-    Stream.eval(req).flatMap(stream).flatMap(f)
-
-  def successful(req: HttpRequest[F]): F[Boolean] =
-    status(req).map(_.isSuccess)
-
-  def successful(req: F[HttpRequest[F]]): F[Boolean] =
-    req.flatMap(successful)
-
-  def toKleisli[A](f: HttpResponse[F] => F[A]): Kleisli[F, HttpRequest[F], A] =
-    Kleisli(fetch(_)(f))
+  /** Client that converts the request to a response directly with status OK. */
+  def identity[F[_]](implicit M: MonadError[F, Throwable]): Client[F] =
+    Client.apply(req => M.pure(HttpRequest.toResponse(req)))
 }

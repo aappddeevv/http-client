@@ -22,11 +22,10 @@ trait CreateOps[F[_]] {
 
   /** Create an entity. The Location header should have a URL to pull the new
     * entity. If return=minimal, 204 No Content else 201 Created. Choose a
-    * decoder to match the return setting.
+    * decoder to match the desired return semantics.
     */
   def create[B, R](entitySet: String, body: B, opts: Option[RequestOptions] = None)(
-      implicit e: EntityEncoder[F, B],
-      d: EntityDecoder[F, R]): F[R] = {
+      implicit enc: EntityEncoder[F, B], dec: EntityDecoder[F, R]): F[R] = {
     val request = mkCreateRequest[B](entitySet, body, opts)
     http.fetch(request) {
       case Status.Successful(resp) => resp.as[R]

@@ -55,8 +55,8 @@ trait DecoderInstances {
     * value array in the response body. This should really be called
     * `FirstElementOfValueArrayIfThereIsOneOrCastWholeMessage`.
     */
-  def ValueWrapper[F[_]: Monad, A <: js.Object] =
-    JsObjectDecoder[F, ValueArrayResponse[A]]().flatMapR[A] { arrresp =>
+  def ValueWrapper[F[_]: Monad, A <: js.Object]: EntityDecoder[F,A] =
+    JsObjectDecoder[F, ValueArrayResponse[A]].flatMapR[A] { arrresp =>
       // if no "value" array, assume its safe to cast to a single A
       arrresp.value.fold(DecodeResult.success[F, A](arrresp.asInstanceOf[A])) { arr =>
         if (arr.size > 0) DecodeResult.success(arr(0))
@@ -93,7 +93,7 @@ trait DecoderInstances {
     * allocated.
     */
   def ValueArrayDecoder[F[_]: Functor, A <: scala.Any]: EntityDecoder[F, js.Array[A]] =
-    JsObjectDecoder[F, ValueArrayResponse[A]]().map(_.value.getOrElse(js.Array[A]()))
+    JsObjectDecoder[F, ValueArrayResponse[A]].map(_.value.getOrElse(js.Array[A]()))
 
   /**
     * Decode based on the expectation of a single value in a fieldname called
@@ -105,5 +105,5 @@ trait DecoderInstances {
     * single value and use that instead of [[ValueArrayDecoder]].
     */
   def SingleValueDecoder[F[_]: Functor, A <: scala.Any]: EntityDecoder[F, js.UndefOr[A]] =
-    JsObjectDecoder[F,SingleValueResponse[A]]().map(_.value)
+    JsObjectDecoder[F,SingleValueResponse[A]].map(_.value)
 }

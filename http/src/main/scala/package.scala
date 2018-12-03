@@ -20,7 +20,16 @@ import cats.effect._
  */
 package object http {
 
-  /** Low-level middleware at the http request/resonse level. */
+  /** 
+   * Low-level middleware at the http request/response level. You can chain
+   * Client's together using the `run` function (since that's a `Kleisli`).
+   * {{{
+   *   // Using the Middleware type with `def apply` causues implicit parameter confusion...
+   *   // so we use the following signature for declaring the middleware.
+   *   def coolClient[F[_]](client: Client[F])(implcit M: MonadError[F,Throwable]): Client[F] = 
+   *      Client(client.run, myErrorHandler)
+   * }}}
+   */
   type Middleware[F[_]]         = Client[F] => Client[F]
 
   /** Basic headers are a dict of strings. Should this be String,String? */

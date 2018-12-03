@@ -69,27 +69,27 @@ trait EntityEncoderInstances {
       override def toEntity(a: A) = f(a)
     }
 
-  def emptyEncoder[F[_]: Applicative,A]: EntityEncoder[F,A] =
+  def EmptyEncoder[F[_]: Applicative,A]: EntityEncoder[F,A] =
     new EntityEncoder[F,A] {
       def toEntity(a: A) = (HttpHeaders.empty, Entity.empty[F])
     }
 
-  implicit def unitEncoder[F[_]: Applicative]: EntityEncoder[F, Unit] =
-    emptyEncoder[F, Unit]
+  implicit def UnitEncoder[F[_]: Applicative]: EntityEncoder[F, Unit] =
+    EmptyEncoder[F, Unit]
 
-  implicit def stringEncoder[F[_]: Applicative]: EntityEncoder[F, String] =
+  implicit def StringEncoder[F[_]: Applicative]: EntityEncoder[F, String] =
     encodeBy(HttpHeaders.empty)(s => Entity(Applicative[F].pure(s)))
 
   /** scalajs specific */
-  implicit def jsObjectEncoder[F[_]: Applicative, A <: js.Object]: EntityEncoder[F, A] =
-    stringEncoder[F].contramap[A](a => js.JSON.stringify(a))
+  implicit def JsObjectEncoder[F[_]: Applicative, A <: js.Object]: EntityEncoder[F, A] =
+    StringEncoder[F].contramap[A](a => js.JSON.stringify(a))
 
   /** scalajs specific */
-  implicit def jsDynamicEncoder[F[_]: Applicative]: EntityEncoder[F,js.Dynamic] =
-    stringEncoder[F].contramap[js.Dynamic](js.JSON.stringify(_))
+  implicit def JsDynamicEncoder[F[_]: Applicative]: EntityEncoder[F,js.Dynamic] =
+    StringEncoder[F].contramap[js.Dynamic](js.JSON.stringify(_))
 
   /** Multitpart encoder. */
-  implicit def multipartEntityEncoder[F[_]: Traverse: Monad]: EntityEncoder[F,Multipart[F]] =
+  implicit def MultipartEntityEncoder[F[_]: Traverse: Monad]: EntityEncoder[F,Multipart[F]] =
     encodeBy{ m => 
       (
         HttpHeaders.empty ++ Map("Content-Type" -> Seq(Multipart.MediaType, "boundary=" + m.boundary.value)),

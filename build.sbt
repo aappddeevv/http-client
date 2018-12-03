@@ -75,7 +75,7 @@ lazy val http = project
   .settings(name := "odata-client-http")
   .settings(description := "odata client ")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
-//  .dependsOn(`scalajs-common`)
+  .dependsOn(`scalajs-common`)
 
 lazy val `node-fetch` = project
   .settings(dynamicsSettings)

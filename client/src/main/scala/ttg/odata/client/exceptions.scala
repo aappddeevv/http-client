@@ -16,7 +16,7 @@ trait HTTPExceptionsInstances {
   }
 }
 
-/** Exception with a possible OData specific error data structure. */
+/** Exception with a possible OData spec defined error data structure, if present. */
 abstract class ODataException[F[_], CM <: CodeMessage]() extends MessageFailure {
  /** An OData error that may be present. */
   def odata: Option[CM] = None
@@ -46,9 +46,10 @@ final case class SimpleUnexpectedStatus[F[_]](
   status: Status,
   request: Option[HttpRequest[F]] = None,
   response: Option[HttpResponse[F]] = None,
-  odataError: Option[CodeMessage] = None)
+  odataError: Option[CodeMessage] = None,
+  note: Option[String] = None)
     extends UnexpectedStatus[F,CodeMessage](status=status,
-      odata=odataError, request=request, response=response) {
+      odata=odataError, request=request, response=response, note=note) {
 }
 
 final case class OnlyOneExpected(details: String,
