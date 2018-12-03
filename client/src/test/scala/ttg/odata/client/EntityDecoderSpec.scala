@@ -35,7 +35,8 @@ class EntityDecoderSpec
   "OData EntityDecoders" should "decode a simple js value in a 'value' field" in {
     val m = TestMessage(Entity(IO.pure("""{"value":"hah"}""")))
     val dr = SingleValueDecoder[IO, String].decode(m)
-    dr.forall(_.value.fold(false)(_ == "hah")).map(assert(_)).unsafeToFuture
+    //dr.forall(_.value.fold(false)(_ == "hah")).map(assert(_)).unsafeToFuture
+    dr.forall(_.fold(false)(_ == "hah")).map(assert(_)).unsafeToFuture
   }
 
   // it should "decode a value array" in {

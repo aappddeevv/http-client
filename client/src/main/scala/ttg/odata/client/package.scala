@@ -7,11 +7,17 @@ import io.estatico.newtype.macros.newtype
 
 import scala.scalajs.js
 import js.|
-import dynamics.common.Utils.{merge}
-import ttg.scalajs.common.JSDataHelpers
+import ttg.scalajs.common.Utils.merge
 
+import cats.ApplicativeError
+
+import ttg.scalajs.common._
+import ttg.odata.client.http._
 
 package object client {
+  import ttg.odata.client._
+
+  // this seems to conflict with Id, AltId and id rendering... */
   ///** Id newtype. */
   //@newtype case class Id(asString: String)
 
@@ -64,10 +70,20 @@ package object client {
     JSDataHelpers.omitIfMatch(obj.asInstanceOf[js.Dictionary[js.Any]], patterns).asInstanceOf[O]
 
   /** Cast to CodeMessage if "code" is defined on the object. */
-  def maybeError[CM <: CodeMessage]: PartialFunction[js.Object, CM] =
-  {
-    case err@_ if(
-      js.Object.hasOwnProperty("error") &&
-        js.Object.hasOwnProperty("message")) => err.asInstanceOf[CM]
+  def maybeError[CM <: CodeMessage]: PartialFunction[js.Object, ErrorResponse[CM]] = {
+    case err@_ if(err.hasOwnProperty("error")) => err.asInstanceOf[ErrorResponse[CM]]
   }
+
+  /**
+   * Convert an `HttpResponse` to an `UnexpectedStatus` error if the status test
+   * returns true. Callers can use this function if they are not sure that an
+   * effect carrying a `HttpResponse` has converted the effect to contain an
+   * error for specific status codes.
+   */
+  def errorIfUnexpectedStatus[F[_]](isError: Status => Boolean, request: Option[HttpRequest[F]])(
+    implicit F: ApplicativeError[F, Throwable]): HttpResponse[F] => F[HttpResponse[F]] =
+    response => {
+      if (!isError(response.status)) F.pure(response)
+      else F.raiseError(SimpleUnexpectedStatus(response.status, request, Some(response)))
+    }
 }

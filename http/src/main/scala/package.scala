@@ -20,9 +20,10 @@ import cats.effect._
  */
 package object http {
 
+  /** Low-level middleware at the http request/resonse level. */
   type Middleware[F[_]]         = Client[F] => Client[F]
 
-  /** Basic headers are a dict of strings. */
+  /** Basic headers are a dict of strings. Should this be String,String? */
   type HttpHeaders = collection.immutable.Map[String, Seq[String]]
 
   /**

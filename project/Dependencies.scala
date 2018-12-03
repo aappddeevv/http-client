@@ -11,7 +11,7 @@ object Dependencies {
 
     "org.scalatest"          %%% "scalatest"    % "3.0.5" % "test", //% "3.2.0-SNAP10" % "test",
     "co.fs2" %%% "fs2-core" % "1.0.0",
-    "org.typelevel" %%% "cats-core" % "1.4.0",
+    "org.typelevel" %%% "cats-core" % "1.5.0",
     "org.typelevel" %%% "cats-effect" % "1.0.0",
     "org.scala-js" %%% "scalajs-java-time" % "latest.version",
     "org.scala-sbt" % "test-interface" % "1.0",
@@ -23,7 +23,7 @@ object Dependencies {
     "com.github.julien-truffaut" %%%  "monocle-core"  % monocleVersion,
     "com.github.julien-truffaut" %%%  "monocle-macro" % monocleVersion,
     "org.scala-lang.modules" %% "scala-xml" % "1.1.0",
-    "ru.pavkin" %%% "scala-js-momentjs" % "0.9.1",    
+    "ru.pavkin" %%% "scala-js-momentjs" % "0.9.2",    
   ))
 
   val appDependencies = Def.setting(Seq(

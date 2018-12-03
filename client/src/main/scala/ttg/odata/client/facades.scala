@@ -111,7 +111,9 @@ trait ErrorResponseDetail[IE <: js.Object, CMT <: CodeMessageTarget]
 }
 
 /**
- * Spec defined.
+ * Spec defined. This is the minimum amount of error information available per
+ * the spec. Optionally, data such as that found in `ErrorResonseDetail` may be
+ * available.
  */
 @js.native
 trait CodeMessage extends js.Object {

@@ -15,7 +15,7 @@ import js.JSConverters._
 import scala.annotation.implicitNotFound
 import scala.collection.mutable
 
-import http.{DecodeResult,EntityDecoder,MissingExpectedHeader}
+import http.{DecodeResult,EntityDecoder}
 import http.instances.entitydecoder._
 
 /**

@@ -50,7 +50,7 @@ lazy val commonSettings = Seq(
   libraryDependencies ++=
     (Dependencies.commonDependencies.value ++
       Dependencies.myJSDependencies.value),
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8"),
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9"),
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
 )
 

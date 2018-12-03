@@ -82,8 +82,11 @@ object Method {
   val DELETE = Method("DELETE")
   val PATCH  = Method("PATCH")
   val PUT    = Method("PUT")
+  val QUERY    = Method("QUERY")
+  val HEAD    = Method("HEAD")
+  val OPTIONS    = Method("OPTIONS")
 
-  val all = Seq(GET, POST, DELETE, POST, PUT)
+  val all = Seq(GET, POST, DELETE, POST, PUT, QUERY, HEAD, OPTIONS)
 }
 
 trait MethodInstances {
@@ -96,7 +99,9 @@ case class HttpRequest[F[_]](
   method: Method,
   path: String,
   headers: HttpHeaders = HttpHeaders.empty,
-  body: Entity[F])
+  body: Entity[F],
+  /** For backend use, if needed. */
+  tags: Map[String, scala.Any] = Map())
     extends Message[F]
 
 object HttpRequest {

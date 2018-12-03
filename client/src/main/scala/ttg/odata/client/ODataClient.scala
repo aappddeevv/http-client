@@ -22,8 +22,17 @@ import client.instances.odatadecoders._
 
 /** An OData client that can raise an error. */
 trait ClientError[F[_]] {
+  self: ClientFConstraints[F] =>
+
   /** Raise an error that is captured in the `F` context. */
-  def raiseError[A](resp: HttpResponse[F], msg: String, req: Option[HttpRequest[F]]): F[A]
+  def raiseError[A](
+    resp: HttpResponse[F],
+    msg: String,
+    req: Option[HttpRequest[F]]): F[A]
+  // def raiseError(
+  //   resp: HttpResponse[F],
+  //   msg: String,
+  //   req: Option[HttpRequest[F]]): F[Nothing]
 }
 
 trait HttpResources[F[_]] {
@@ -63,14 +72,15 @@ trait ClientIdRenderer {
   * suspended action to execute the request and process the result. You'll need
   * to construct a client carefully for each specific OData backend. Since OData
   * datasources can have a number of application specific options, this trait
-  * should be considered a building block that has many type parameters that
-  * reflect this optionality. Hence, it is a pain to assemble all the pieces
-  * together.
+  * should be considered a building block that has many traits that reflect the
+  * optionality. Hence, it is a pain to assemble all the pieces together.
   *
-  * All of the methods either return an F or a Steam. The F or Stream must be
-  * run in order to execute the operation. The client only captures the most
+  * All of the methods either return an F or a fs2.Stream. The F or Stream must
+  * be run in order to execute the operation. The client only captures the most
   * commonly used idioms of an OData web service. It's possible to have cases
   * here this client's API is insufficient for your OData url.
+ * 
+ * @todo: Factor out the fs2.Stream.
   *
  * @tparam F Effect for requests, must be a Monad.
   */

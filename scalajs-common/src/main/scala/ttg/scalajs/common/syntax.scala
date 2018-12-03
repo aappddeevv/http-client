@@ -211,7 +211,8 @@ trait JsPromiseInstances {
 
 trait JsPromiseSyntax {
   implicit class RichPromise[A](p: js.Promise[A]) {
-    def toIO(implicit ec: ExecutionContext, cvt: js.Promise ~> IO): IO[A] = cvt(p)
+    def toIO(implicit ec: ExecutionContext): IO[A] = jsPromiseToIO(ec)(p)
+    def toF[F[_]](implicit F: Async[F]): F[A] = jsPromiseToF[F, A](F)(p)
   }
 }
 
@@ -257,9 +258,6 @@ object syntax {
   object jsany         extends JsAnySyntax
   object future        extends FutureSyntax
   object iterator      extends IteratorSyntax
-
-  /** @deprecated, use "jspromise" */
-  object jsPromise extends JsPromiseSyntax
   object jspromise extends JsPromiseSyntax
   object stream    extends StreamSyntax
   object ornull    extends OrNullSyntax

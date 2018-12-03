@@ -9,7 +9,6 @@ import scala.concurrent.duration._
 import scala.scalajs.js
 import scala.concurrent._
 import fs2._
-import dynamics._
 import cats._
 import cats.data._
 import cats.implicits._
