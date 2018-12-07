@@ -8,6 +8,7 @@ package client
 import scala.scalajs.js
 import js.{|, UndefOr}
 import js.annotation._
+import scala.annotation.unchecked.{uncheckedVariance => uv}
 
 /**
   * Various OData 4.0 annotations that represent control information. Excludes
@@ -95,30 +96,31 @@ trait SingleValueResponse[A <: scala.Any] extends js.Object {
  * parameter, or roll your own.
  */
 @js.native
-trait ErrorResponse[CM <: CodeMessage] extends js.Object {
+trait ErrorResponse[+CM <: CodeMessage] extends js.Object {
   val error: js.UndefOr[CM] = js.native
+}
+
+/**
+ * Spec defined. This is the minimum amount of error information available per
+ * the spec. Optionally, data such as that found in `ErrorResonseDetail` may be
+ * available. Its usually better to always use `ErrorResponseDetail` instead of
+ * this trait.
+ */
+@js.native
+trait CodeMessage extends js.Object {
+  var code: String = js.native
+  var message: String = js.native
 }
 
 /**
  * Spec defined.
  */
 @js.native
-trait ErrorResponseDetail[IE <: js.Object, CMT <: CodeMessageTarget]
+trait ErrorResponseDetail[+IE <: js.Object, +CMT <: CodeMessageTarget]
     extends CodeMessage {
   var target: js.UndefOr[String] = js.native
-  var details: js.UndefOr[js.Array[CMT]] = js.native
-  var innererror: js.UndefOr[IE] = js.native  
-}
-
-/**
- * Spec defined. This is the minimum amount of error information available per
- * the spec. Optionally, data such as that found in `ErrorResonseDetail` may be
- * available.
- */
-@js.native
-trait CodeMessage extends js.Object {
-  var code: String = js.native
-  var message: String = js.native
+  var details: js.UndefOr[js.Array[CMT @uv]] = js.native
+  var innererror: js.UndefOr[IE @uv] = js.native  
 }
 
 @js.native

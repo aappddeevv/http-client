@@ -7,7 +7,7 @@ package client
 
 import scala.scalajs.js
 import js.annotation._
-
+import cats.Monad
 import http._
 
 /** 
@@ -19,8 +19,8 @@ import http._
  * before this algebra is used. A renderer to render the RequestOptions type is
  * required and hence recursively, a renderer for Prefer values.
  */
-trait ClientRequests[F[_]] {
-  self: ClientIdRenderer with ClientFConstraints[F] =>
+trait ClientRequests[F[_], E <: Throwable] {
+  self: ClientIdRenderer with ClientFConstraints[F,E] =>
   type PreferOptions <: BasicPreferOptions
   type RequestOptions <: BasicRequestOptions[PreferOptions]
 
@@ -28,7 +28,9 @@ trait ClientRequests[F[_]] {
   val optRenderer: HeaderRenderer[RequestOptions]
   val emptyBody: Entity[F] = Entity.empty[F]
 
-  val DefaultBatchRequest = HttpRequest(Method.PUT, "/$batch", body=emptyBody)
+  private implicit val _F: Monad[F] = F
+
+  //val DefaultBatchRequest = HttpRequest(Method.PUT, "/$batch", body=emptyBody)
 
   /**
     * This does not handle the version tag + applyOptimisticConcurrency flag yet.
@@ -50,13 +52,13 @@ trait ClientRequests[F[_]] {
   }
 
   /** Make a pure delete request. */
-  def mkDeleteRequest(entitySet: String, key: ODataId, opts: Option[RequestOptions] = None) = {
+  def mkDeleteRequest(entitySet: EntitySetName, key: ODataId, opts: Option[RequestOptions] = None) = {
     val etag = opts.fold(HttpHeaders.empty){o =>
       if (o.applyOptimisticConcurrency.getOrElse(false) && o.version.isDefined)
         HttpHeaders("If-Match" -> o.version.get)
       else HttpHeaders.empty
     }
-    HttpRequest[F](Method.DELETE, s"/$entitySet(${renderId(key)})", headers = toHeaders(opts) ++ etag,
+    HttpRequest[F](Method.DELETE, s"/${entitySet.asString}(${renderId(key)})", headers = toHeaders(opts) ++ etag,
       body = emptyBody)
   }
 
@@ -79,17 +81,18 @@ trait ClientRequests[F[_]] {
     * Not sure adding $base to the @odata.id is absolutely needed. Probably is.
     * @see https://docs.microsoft.com/en-us/dynamics365/customer-engagement/developer/webapi/associate-disassociate-entities-using-web-api?view=dynamics-ce-odata-9
     */
-  def mkAssociateRequest(fromEntitySet: String,
-    fromEntityId: String,
+  def mkAssociateRequest(
+    fromEntitySet: EntitySetName,
+    fromEntityId: ODataId,
     navProperty: String,
-    toEntitySet: String,
-    toEntityId: String,
+    toEntitySet: EntitySetName,
+    toEntityId: ODataId,
     base: String,
     singleValuedNavProperty: Boolean = true)(
     implicit enc: EntityEncoder[F,String]
   ): HttpRequest[F] = {
-    val url  = s"/${fromEntitySet}(${fromEntityId})/$navProperty/$$ref"
-    val body = s"""{"@odata.id": "$base/$toEntitySet($toEntityId)"}"""
+    val url  = s"/${fromEntitySet.asString}(${renderId(fromEntityId)})/$navProperty/$$ref"
+    val body = s"""{"@odata.id": "$base/${toEntitySet.asString}(${renderId(toEntityId)})"}"""
     val method =
       if (singleValuedNavProperty) Method.PUT
       else Method.POST
@@ -103,12 +106,12 @@ trait ClientRequests[F[_]] {
     *
     * @see https://docs.microsoft.com/en-us/dynamics365/customer-engagement/developer/webapi/associate-disassociate-entities-using-web-api?view=dynamics-ce-odata-9
     */
-  def mkDisassocatiateRequest(fromEntitySet: String,
-    fromEntityId: String,
+  def mkDisassocatiateRequest(fromEntitySet: EntitySetName,
+    fromEntityId: ODataId,
     navProperty: String,
     toId: Option[String]): HttpRequest[F] = {
     val navPropertyStr = toId.map(id => s"$navProperty($id)").getOrElse(navProperty)
-    val url            = s"/$fromEntitySet($fromEntityId)/$navPropertyStr/$$ref"
+    val url            = s"/${fromEntitySet.asString}(${renderId(fromEntityId)})/$navPropertyStr/$$ref"
     HttpRequest(Method.DELETE, url, body = emptyBody)
   }
 

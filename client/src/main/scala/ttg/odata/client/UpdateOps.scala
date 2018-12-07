@@ -14,8 +14,11 @@ import fs2._
 import http._
 
 /** OData operations for updating infomation. */
-trait UpdateOps[F[_]] {
-  self: ClientError[F] with HttpResources[F] with ClientFConstraints[F] with ClientRequests[F] =>
+trait UpdateOps[F[_], E<:Throwable] {
+  self: ClientError[F,E]
+      with HttpResources[F,E]
+      with ClientFConstraints[F,E]
+      with ClientRequests[F,E] =>
 
     /**
     * Update a single property, return the id updated.
@@ -36,7 +39,7 @@ trait UpdateOps[F[_]] {
     http.fetch[String](request) {
       case Status.Successful(resp) if (resp.status == Status.NoContent) => F.pure(id)
       case failedResponse                                               =>
-        raiseError(failedResponse, s"Update $entitySet($id)", Option(request))
+        mkUnexpectedError(s"Update $entitySet($id)", request, failedResponse)
     }
   }
 
@@ -57,7 +60,7 @@ trait UpdateOps[F[_]] {
     http.fetch[String](request) {
       case Status.Successful(resp) => F.pure(id)
       case failedResponse =>
-        raiseError(failedResponse, s"Update $entitySet($id)", Option(request))
+        mkUnexpectedError(s"Update $entitySet($id)", request, failedResponse)
     }
   }
 

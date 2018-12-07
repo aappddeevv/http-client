@@ -36,23 +36,27 @@ trait MultipartSyntax {
 trait AllSyntax
     extends DecodeResultSyntax
     with MultipartSyntax
+    with ErrorChannelOpsSyntax
 
 object syntax {
   object all           extends AllSyntax
   object decoderesult  extends DecodeResultSyntax
   object multipart extends MultipartSyntax
+  object errorchannel extends ErrorChannelOpsSyntax
 }
 
 trait AllInstances
     extends EntityEncoderInstances
     with EntityDecoderInstances
     with MethodInstances
+    with ErrorChannelInstances
 
 object instances {
   object all           extends AllInstances
   object entityencoder extends EntityEncoderInstances
   object entitydecoder extends EntityDecoderInstances
   object method        extends MethodInstances
+  object errorchannel extends ErrorChannelInstances
 }
 
 object implicits extends AllSyntax with AllInstances

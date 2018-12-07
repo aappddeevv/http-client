@@ -13,43 +13,49 @@ import fs2._
 
 import http._
 
-/** OData operations for associating infomation. */
-trait AssociateOps[F[_]] {
-  self: ClientError[F] with HttpResources[F] with ClientFConstraints[F] with ClientRequests[F] =>
+/** OData operations for associating/dissociating infomation. */
+trait AssociateOps[F[_], E<:Throwable] {
+  self: ClientError[F,E]
+      with HttpResources[F,E]
+      with ClientFConstraints[F,E]
+      with ClientRequests[F,E] =>
+
+  private implicit val _F: Monad[F] = F
 
     /**
     * Associate an existing entity to another through a single or collection
     * valued navigation property.
     */
-  def associate(fromEntitySet: String,
-                fromEntityId: String,
+  def associate(fromEntitySet: EntitySetName,
+                fromEntityId: ODataId,
                 navProperty: String,
-                toEntitySet: String,
-                toEntityId: String,
+                toEntitySet: EntitySetName,
+                toEntityId: ODataId,
                 singleNavProperty: Boolean): F[Boolean] = {
     val request =
-      mkAssociateRequest(fromEntitySet, fromEntityId, navProperty, toEntitySet, toEntityId, base, singleNavProperty)
+      mkAssociateRequest(
+        fromEntitySet, fromEntityId, navProperty,
+        toEntitySet, toEntityId, base, singleNavProperty
+      )
     http.fetch(request) {
       case Status.Successful(resp) => F.pure(true)
       case failedResponse =>
-        raiseError(failedResponse,
-                             s"Association $fromEntitySet($fromEntityId)->$navProperty->$toEntitySet($toEntityId)",
-                             Option(request))
+        mkUnexpectedError(s"Association ${fromEntitySet.asString}($fromEntityId)->$navProperty->${toEntitySet.asString}($toEntityId)",
+          request, failedResponse)
     }
   }
 
   /** Disassociate an entity fram a navigation property. */
-  def disassociate(fromEntitySet: String,
-                   fromEntityId: String,
+  def disassociate(fromEntitySet: EntitySetName,
+                   fromEntityId: ODataId,
                    navProperty: String,
                    to: Option[String] = None): F[Boolean] = {
     val request = mkDisassocatiateRequest(fromEntitySet, fromEntityId, navProperty, to)
     http.fetch(request) {
       case Status.Successful(resp) => F.pure(true)
       case failedResponse =>
-        raiseError(failedResponse,
-                             s"Disassociation $fromEntitySet($fromEntityId)->$navProperty->$to",
-                             Option(request))
+        mkUnexpectedError(s"Disassociation ${fromEntitySet.asString}($fromEntityId)->$navProperty->$to",
+          request, failedResponse)
     }
   }
 

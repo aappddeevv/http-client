@@ -38,7 +38,7 @@ class EntityDecoderSpec
 
   it should "decode a js.Object" in {
     val m = TestMessage(Entity(IO.pure("""{"blah":"hah"}""")))
-    val dr = JsObjectDecoder[IO, TestResponse1]().decode(m)
+    val dr = JsObjectDecoder[IO, TestResponse1].decode(m)
     dr.forall(_.blah.fold(false)(_ == "hah")).map(assert(_)).unsafeToFuture
   }
 }

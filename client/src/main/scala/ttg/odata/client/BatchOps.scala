@@ -13,8 +13,11 @@ import fs2._
 
 import http._
 
-trait BatchOps[F[_]] {
-  self: ClientError[F] with HttpResources[F] with ClientFConstraints[F] with ClientRequests[F] =>
+trait BatchOps[F[_], E <: Throwable] {
+  self: ClientError[F,E]
+      with HttpResources[F,E]
+      with ClientFConstraints[F,E]
+      with ClientRequests[F,E] =>
 
   /**
     * Run a batch request. Dynamics batch requests are POSTs.
@@ -24,12 +27,9 @@ trait BatchOps[F[_]] {
   def batch[R](m: Multipart[F], headers: HttpHeaders = HttpHeaders.empty, opts: Option[RequestOptions] = None)(
       implicit enc: EntityEncoder[F, Multipart[F]], dec: EntityDecoder[F, R]): F[R] = {
     val (xtras, ent) = enc.toEntity(m)
-    val therequest =
+    val request =
       HttpRequest[F](Method.POST, "/$batch", headers = headers ++ toHeaders(opts) ++ xtras, body = ent)
-    http.fetch[R](therequest) {
-      case Status.Successful(resp) => resp.as[R]
-      case failedResponse =>
-        raiseError(failedResponse, s"Batch", Option(therequest))
-    }
+    http.expectOr(request)(
+      mkUnexpectedError("Batch", _, _))
   }
 }

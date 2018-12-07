@@ -10,44 +10,41 @@ import cats.data._
 import cats.implicits._
 import cats.effect._
 
-/**
- * Middleware that logs requests and responses.
- */
-object LoggingMiddleware {
-  /** Create a new Client. */
-  def apply[F[_]: Async](
+import http.instances.errorchannel._
+
+/** Logging middleware. */
+object logging {
+
+  /**
+   * Log requests and responses.
+   */
+  def both[F[_]: ErrorChannel[?[_], E]: Async, E <: Throwable](
     logHeader:Boolean=true,
     logBody:Boolean=true,
-    log: String => F[Unit]): Middleware[F] =
-    client => 
-  RequestLoggingMiddleware(logHeader, logBody, log)(Async[F])(
-    ResponseLoggingMiddleware.apply(logHeader,logBody, log)(Async[F])(
-      client))
+    log: String => F[Unit])(client: Client[F,E]): Client[F,E] =
+    requests(logHeader, logBody, log)(
+      responses(logHeader,logBody, log)(
+        client))
 
-}
-
-/** Log requests. */
-object RequestLoggingMiddleware {
-  def apply[F[_]](
+  /** Log requests. */
+  def requests[F[_]: Async: ErrorChannel[?[_],E], E <: Throwable](
     logHeader:Boolean=true,
     logBody:Boolean=true,
-    log: String => F[Unit])(
-    implicit F: Async[F]): Middleware[F] =
-    client => Client{ req =>
-      log(req.show) *> client.run(req)
+    log: String => F[Unit])(client: Client[F,E]): Client[F,E] =
+    Client{req =>
+      //log(req.show) *> client.run(req)
+      Async[F].productR(log(req.show))(client.run(req))
     }
-}
 
-/** Log requests. */
-object ResponseLoggingMiddleware {
-  def apply[F[_]](
+  /** Log responses. */
+  def responses[F[_]: Async: ErrorChannel[?[_],E], E <: Throwable](
     logHeader:Boolean=true,
     logBody:Boolean=true,
-    log: String => F[Unit])(
-    implicit F: Async[F]): Middleware[F] =
-    client => Client{ req =>
+    log: String => F[Unit])(client: Client[F,E]): Client[F,E] =
+    Client{ req =>
       client.run(req).flatMap{ resp =>
-        log(resp.show) *> F.delay(resp)
+        //log(resp.show) *> F.delay(resp)
+        Async[F].productR(log(resp.show))(Async[F].delay(resp))
       }
     }
 }

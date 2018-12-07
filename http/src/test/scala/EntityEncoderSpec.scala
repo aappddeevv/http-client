@@ -38,11 +38,23 @@ class EntityEncoderSpec
   }
 
   it should "have an empty entity" in {
-    Entity.empty[IO].content.unsafeToFuture.map(v => assert(v == ""))
+    Entity.empty[IO]
+      .content
+      .unsafeToFuture.map(v => assert(v == ""))
+  }
+
+  // test for some wierd errors I was getting...
+  it should "use an applicative for an empty entity" in {
+    def getit[F[_]: Applicative] = {
+      Entity.empty[F]
+    }
+    val x = getit[IO]
+    x.content
+      .unsafeToFuture.map(v => assert(v == ""))
   }
 
   it should "encode a simple string" in {
-    val (hdr, ent) = stringEncoder[IO].toEntity("blah")
+    val (hdr, ent) = StringEncoder[IO].toEntity("blah")
     compareContent(ent,Entity(IO.pure("blah")))
     .unsafeToFuture
     .map{ c => 
@@ -52,14 +64,14 @@ class EntityEncoderSpec
 
   it should "encode a js.Object" in {
     val test1 = new Test1 { blah = "hah" }
-    val (hdr, ent) = jsObjectEncoder[IO, Test1].toEntity(test1)
+    val (hdr, ent) = JsObjectEncoder[IO, Test1].toEntity(test1)
     compareContent(ent,Entity(IO.pure("""{"blah":"hah"}""")))
       .unsafeToFuture
       .map(v => assert(v && hdr.size == 0))
   }
 
   it should "encode a dynamics object" in {
-    val (hdr, ent) = jsDynamicEncoder[IO].toEntity(js.Dynamic.literal("blah" -> "hah"))
+    val (hdr, ent) = JsDynamicEncoder[IO].toEntity(js.Dynamic.literal("blah" -> "hah"))
     compareContent(ent,Entity(IO.pure("""{"blah":"hah"}""")))
       .unsafeToFuture
       .map(v => assert(v && hdr.size == 0))

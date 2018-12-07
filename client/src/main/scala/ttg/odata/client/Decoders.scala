@@ -20,25 +20,43 @@ import http.instances.entitydecoder._
 
 /**
   * EntityDecoder instances specific to the type you want to "output" from the
-  * decoding process.
+  * decoding process. None of these are implicit as most of them need to be
+  * explicitly used to create the correct decoder semantics.
   */
 trait DecoderInstances {
-
-  /** GUID regex. (scala) */
-  val reg = """[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}""".r
 
   /**
     * A decoder that only looks at the header for an OData-EntityId
     * (case-insensitive) value and returns that, otherwise fail. To ensure that
     * the id is returned in the header, you must make sure that
-    * return=representation is *not* set in the Prefer headers when the HTTP
-    * call is issued.
+    * return=representation is *not* set (return=minimal is fine) in the Prefer
+    * headers when the HTTP call is issued.
     */
-  def ReturnedIdDecoder[F[_]: Applicative]: EntityDecoder[F, String] = EntityDecoder { msg =>
-    (msg.headers.get("OData-EntityId") orElse msg.headers.get("odata-entityid"))
-      .map(_(0))
-      .flatMap(reg.findFirstIn(_))
-      .fold(DecodeResult.failure[F, String](MissingExpectedHeader("OData-EntityId")))(id => DecodeResult.success(id))
+  def ReturnedIdDecoder[F[_]: Applicative]: EntityDecoder[F, String] =
+    EntityDecoder.instance { msg =>
+      (msg.headers.get("OData-EntityId") orElse msg.headers.get("odata-entityid"))
+        .filter(_.length >= 1)
+        .map(_(0))
+        .flatMap(GUIDReg.findFirstIn(_))
+        .fold(
+          DecodeResult.failure[F, String](MissingExpectedHeader("OData-EntityId")))(
+          DecodeResult.success(_)
+        )
+    }
+
+  /** Return the value in the Location header. */
+  def ReturnLocation[F[_]: Applicative]: EntityDecoder[F, String] =
+    ReturnHeader("Location").map(_(0))
+
+  /** Return a specific header value, which must have at least one value. */
+  def ReturnHeader[F[_]: Applicative](name: String): EntityDecoder[F, Seq[String]] =
+  EntityDecoder.instance { msg =>
+    msg.headers.get(name)
+      .filter(_.length >= 1)
+      .fold(
+        DecodeResult.failure[F,Seq[String]](MissingExpectedHeader("Location")))(
+        DecodeResult.success(_)
+      )
   }
 
   /**

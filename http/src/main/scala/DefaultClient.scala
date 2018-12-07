@@ -11,14 +11,8 @@ import cats.data._
 import cats.implicits._
 
 private[http]
-  abstract class DefaultClient[F[_]](implicit F: MonadError[F, Throwable]) extends Client[F] {
-
-  /** The "default" onError implementations must supply an error for unexpected
-   * status. If you have an exception object use
-   * `M.pure(YourStatusException(resp.status))` to create an error where `M` is
-   * a `MonadError` or `ApplicativeError`.
-   */
-  def defaultOnError(req: HttpRequest[F], resp: HttpResponse[F]): F[Throwable]    
+abstract class DefaultClient[F[_]: ErrorChannel[?[_],E]: Monad,E <: Throwable]
+extends Client[F, E] {
 
   def fetch[A](request: HttpRequest[F])(f: HttpResponse[F] => F[A]): F[A] =
     run(request).flatMap(f)
@@ -26,26 +20,21 @@ private[http]
   def fetch[A](request: F[HttpRequest[F]])(f: HttpResponse[F] => F[A]): F[A] =
     request.flatMap(fetch(_)(f))
 
-  def expectOr[A](req: HttpRequest[F])(onError: (HttpRequest[F], HttpResponse[F]) => F[Throwable])(
+  def expectOr[A](req: HttpRequest[F])(onError: (HttpRequest[F], HttpResponse[F]) => F[E])(
       implicit d: EntityDecoder[F, A]): F[A] = {
     fetch(req) {
       case Status.Successful(resp) =>
+        // same as resp.as[B] when using syntax
         d.decode(resp).fold(throw _, identity)
       case failedResponse =>
-        onError(req, failedResponse).flatMap(F.raiseError)
+        onError(req, failedResponse).flatMap(ErrorChannel[F,E].raise)
     }
   }
 
-  def expectOr[A](req: F[HttpRequest[F]])(onError: (HttpRequest[F], HttpResponse[F]) => F[Throwable])(
+  def expectOr[A](req: F[HttpRequest[F]])(onError: (HttpRequest[F], HttpResponse[F]) => F[E])(
     implicit d: EntityDecoder[F, A]): F[A] =
-    req.flatMap(expectOr(_)(onError))
+    Monad[F].flatMap(req)(expectOr(_)(onError))
   
-  def expect[A](req: HttpRequest[F])(implicit d: EntityDecoder[F, A]): F[A] =
-    expectOr(req)(defaultOnError)
-
-  def expect[A](req: F[HttpRequest[F]])(implicit d: EntityDecoder[F, A]): F[A] =
-    expectOr(req)(defaultOnError)
-
   def fetchAs[A](req: HttpRequest[F])(implicit d: EntityDecoder[F, A]): F[A] =
     fetch(req) { resp =>
       d.decode(resp).fold(throw _, identity)
@@ -55,7 +44,7 @@ private[http]
     req.flatMap(fetchAs(_)(d))
 
   def status(req: HttpRequest[F]): F[Status] =
-    fetch(req)(resp => F.pure(resp.status))
+    fetch(req)(resp => Monad[F].pure(resp.status))
 
   def status(req: F[HttpRequest[F]]): F[Status] = req.flatMap(status)
 

@@ -14,28 +14,30 @@ import cats.implicits._
  * A thin layer over a HTTP service that takes `HttpRequest => F[HttpResonse]`
  * and that adds implcit convenience for finding response decoders and handling
  * unsuccessful (non-200 range) responses. A higher level client may provide
- * more nuanced error handling. Since this layer can detect an unexpected status
- * and error on that condition, implementations must provide that method.
+ * more nuanced error handling. Implementations can constraint `E` to their
+ * algebra's root error class, if desired. `EntityDecoder`s are only used in the
+ * `expect` methods if the status is `Successful`(200 range). `E` is type
+ * of error that this layer can raise. The specific Kleisli in `run` could
+ * raise other errors. Keeping errors in `F` is bit of a disaster.
  * 
- * Based directly on http4s design. It's really a `Kleisli. `Client` is really a
- * wrapper around a function `Request => F[Response]`.
+ * Design is based directly on http4s design. It's really a `Kleisli. `Client`
+ * is really a wrapper around a function `Request => F[Response]`.
  */
-trait Client[F[_]] {
+trait Client[F[_], E <: Throwable] {
+  /** The underlying Kleisli function. */
   def run(req: HttpRequest[F]): F[HttpResponse[F]]
+
   /** Process response regardless of status. */
   def fetch[A](request: HttpRequest[F])(f: HttpResponse[F] => F[A]): F[A]
   /** Process response regardless of status. */
   def fetch[A](request: F[HttpRequest[F]])(f: HttpResponse[F] => F[A]): F[A]
 
-  def expectOr[A](req: HttpRequest[F])(onError: (HttpRequest[F], HttpResponse[F]) => F[Throwable])(
+  /** `onError` receiving both the request and response is a little duplicative but convenient. */
+  def expectOr[A](req: HttpRequest[F])(onError: (HttpRequest[F], HttpResponse[F]) => F[E])(
     implicit d: EntityDecoder[F, A]): F[A]
-  def expectOr[A](req: F[HttpRequest[F]])(onError: (HttpRequest[F], HttpResponse[F]) => F[Throwable])(
+  /** `onError` receiving both the request and response is a little duplicative but convenient. */
+  def expectOr[A](req: F[HttpRequest[F]])(onError: (HttpRequest[F], HttpResponse[F]) => F[E])(
     implicit d: EntityDecoder[F, A]): F[A]
-
-  /** Expect a successful response. */
-  def expect[A](req: HttpRequest[F])(implicit d: EntityDecoder[F, A]): F[A]
-  /** Expect a successful response. */
-  def expect[A](req: F[HttpRequest[F]])(implicit d: EntityDecoder[F, A]): F[A]
 
   /**
    * Fetch response, process response with a decoder `d` regardless of status,
@@ -64,31 +66,46 @@ trait Client[F[_]] {
   def toKleisli[A](f: HttpResponse[F] => F[A]): Kleisli[F, HttpRequest[F], A]
 }
 
+/**
+ * Import `client.instances.errorchannel._ to bring automatic `ErrorChannel` instances
+ * based on an `ApplicativeError`.
+ */
 object Client {
-  /** Create a new Client. Specificy how to raise an unexpected status error. */
-  def apply[F[_]](f: HttpRequest[F] => F[HttpResponse[F]],
-    mkStatusError: (HttpRequest[F], HttpResponse[F]) => F[Throwable])(
-    implicit M: MonadError[F,Throwable]): Client[F] =
-    new DefaultClient[F] {
+
+  /** Make the default `UnexpectedHttpStatus` error for `Client.expectOr` assuming
+   * a Throwable `E`.
+   */
+  def mkUnexpectedStatus[F[_]: ErrorChannel[?[_], Throwable]](
+    req: HttpRequest[F], resp: HttpResponse[F]): F[Throwable] =
+    ErrorChannel[F,Throwable].raise(UnexpectedHttpStatus(resp.status))
+
+  /** Create a new Client. Specify how to creaete an unexpected status error. */
+  def apply[F[_], E <: Throwable](
+    f: HttpRequest[F] => F[HttpResponse[F]])(
+    implicit M: Monad[F], EC: ErrorChannel[F,E]): Client[F,E] =
+    new DefaultClient[F,E] {
       def run(req: HttpRequest[F]) = f(req)
-      def defaultOnError(req: HttpRequest[F], resp: HttpResponse[F]) =
-        mkStatusError(req,resp)
     }
 
   /**
    * Use the super simple `UnexpectedHttpStatus` exception for the status error.
-   * Unless you are only using the HTTP layer, you'll want to customize a client
-   * with your own unexpected status exception.
+   * Unless you are only using the HTTP layer, you will probable want to
+   * customize a client with your own unexpected status exception or exception
+   * GADT. You could also use this default and bake in a `F` recovery type
+   * mechanism into your own client to translate `UnexpectedHttpStatus` to
+   * something else you want.
    */
-  def apply[F[_]](f: HttpRequest[F] => F[HttpResponse[F]])(
-    implicit M: MonadError[F,Throwable]): Client[F] =
-    new DefaultClient[F] {
+  def withThrowable[F[_]: ErrorChannel[?[_],Throwable]:Monad](
+    f: HttpRequest[F] => F[HttpResponse[F]]): Client[F,Throwable] =
+    new DefaultClient[F, Throwable] {
       def run(req: HttpRequest[F]) = f(req)
-      def defaultOnError(req: HttpRequest[F], resp: HttpResponse[F]) =
-        M.pure(new UnexpectedHttpStatus(resp.status))
+      def onError(req: HttpRequest[F], resp: HttpResponse[F]) =
+        ErrorChannel[F,Throwable].raise(new UnexpectedHttpStatus(resp.status))
     }
 
-  /** Client that converts the request to a response directly with status OK. */
-  def identity[F[_]](implicit M: MonadError[F, Throwable]): Client[F] =
-    Client.apply(req => M.pure(HttpRequest.toResponse(req)))
+  /** Client that converts the request to a response directly with the status
+    * indicated, which is Ok by default.
+   */
+  def identity[F[_]: ErrorChannel[?[_],Throwable]: Monad](status: Status = Status.OK): Client[F,Throwable] =
+    Client.withThrowable(req => Monad[F].pure(HttpRequest.toResponse(req, status)))
 }

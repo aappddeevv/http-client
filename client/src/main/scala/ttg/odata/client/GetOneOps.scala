@@ -15,12 +15,14 @@ import http._
 import client.syntax.queryspec._
 
 /** OData operations for getting a single entity. */
-trait GetOneOps[F[_]] {
-  self: ClientError[F]
-      with HttpResources[F]
-      with ClientFConstraints[F]
-      with ClientRequests[F]
+trait GetOneOps[F[_],E <: Throwable] {
+  self: ClientError[F,E]
+      with HttpResources[F,E]
+      with ClientFConstraints[F,E]
+      with ClientRequests[F,E]
       with ClientIdRenderer =>
+
+  private implicit val _F: Applicative[F] = F
 
   /**
     * Get a single entity using key information. The key can be a guid or
@@ -30,18 +32,19 @@ trait GetOneOps[F[_]] {
     *
     * Allow you to specify a queryspec somehow as well!?!?
     */
-  def getOneWithKey[A](entitySet: String,
+  def getOneWithKey[A](entitySet: EntitySetName,
                        key: ODataId,
                        attributes: Seq[String] = Nil,
     opts: Option[RequestOptions] = None)(
     implicit d: EntityDecoder[F, A]): F[A] = {
     val q = QuerySpec(select = attributes)
-    getOne(q.url(s"/$entitySet(${renderId(key)})"), opts)(d)
+    getOne(q.url(s"/${entitySet.asString}(${renderId(key)})"), opts)(d)
   }
 
   /**
     * Get one entity using a full query url. You can use a QuerySpec to form the
-    * url then call `qs.url(myentities,Some(theid))`.
+    * url then call `qs.url(myentities,Some(theid))` or you can use
+   * `getOneWithKey` which creates a URL.
     *
     * If you use a URL that returns a OData response with a `value` array that
     * needs be automatically extracted, you need to use an explict EntityDecoder
@@ -54,16 +57,11 @@ trait GetOneOps[F[_]] {
     * have an "expand" segment.  Note that if you navigate to a simple
     * attribute, then it is returned as a simple object also attached to "value"
     * so choose your decoder wisely.
-    *
     */
   def getOne[A](url: String, opts: Option[RequestOptions]=None)(
       implicit d: EntityDecoder[F, A]): F[A] = {
     val request = HttpRequest[F](Method.GET, url, headers = toHeaders(opts), Entity.empty[F])
-    http.fetch(request) {
-      case Status.Successful(resp) => resp.as[A]
-      case failedResponse =>
-        raiseError(failedResponse, s"Get one entity $url", Option(request))
-    }
+    http.expectOr(request)(mkUnexpectedError("Get one entity $url", _, _))
   }
 
 }

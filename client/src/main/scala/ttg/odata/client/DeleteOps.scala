@@ -13,21 +13,21 @@ import fs2._
 
 import http._
 
-trait DeleteOps[F[_]] {
-  self: ClientError[F]
-      with HttpResources[F]
-      with ClientFConstraints[F]
-      with ClientRequests[F]
+trait DeleteOps[F[_],E <: Throwable] {
+  self: ClientError[F,E]
+      with HttpResources[F,E]
+      with ClientFConstraints[F,E]
+      with ClientRequests[F,E]
       with ClientIdRenderer =>
 
   /** Delete an entity. Return the id passed in for convenience. Return true if
     * the entity does not exist even though this call did not technically delete
-    * it if it did not exist already.
+    * it but semantically, the entity no longer exists.
     * @param entityCollection Entity
     * @param keyInfo Primary key (GUID) or alternate key.
     * @return Pair of the id passed in and true if deleted (204), false if not (404).
     */
-  def delete(entitySet: String,
+  def delete(entitySet: EntitySetName,
              key: ODataId,
              opts: Option[RequestOptions] = None): F[(ODataId, Boolean)] = {
     // Status 204 indicates success, status 404 indicates the entity did not exist.
@@ -36,7 +36,7 @@ trait DeleteOps[F[_]] {
       case Status.Successful(resp)                               => F.pure((key, true))
       case Status.ClientError(resp) if (resp.status.code == 404) => F.pure((key, true))
       case failedResponse =>
-        raiseError(failedResponse, s"Delete for $entitySet($key)", Option(request))
+        mkUnexpectedError(s"Delete for $entitySet($key)", request, failedResponse)
     }
   }
 }

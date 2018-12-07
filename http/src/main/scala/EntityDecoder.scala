@@ -20,7 +20,9 @@ import scala.collection.mutable
   * which is co-product (either) an error or a value. You can fold on the decode
   * result to work with either side e.g. `mydecoderesult.fold(throw _,
   * identity)`. `EntityDecoder` is really a Kleisli: `Message => DecodeResult`
-  * which is `Message[F] => F[Either[DecodeFailure, A]]`.
+  * which is `Message[F] => F[Either[DecodeFailure, A]]`. In most client
+  * implementations, decoders are only called on successfull results so there
+  * the decode method only receives headers and body to decode.
   */
 @implicitNotFound("Cannot find instance of EntityDecoder[${T}].")
 trait EntityDecoder[F[_], T] { self =>
@@ -101,6 +103,9 @@ trait EntityDecoder[F[_], T] { self =>
     }
 }
 
+/** 
+ * @todo Define Alternative[EntityDecoder[F[_]]]? We already have `orElse`.
+ */
 object EntityDecoder extends EntityDecoderInstances {
 
   /** Summoner. */
@@ -110,7 +115,7 @@ object EntityDecoder extends EntityDecoderInstances {
   def instance[F[_], T](run: Message[F] => DecodeResult[F, T]): EntityDecoder[F, T] =
     new EntityDecoder[F, T] {
       def decode(response: Message[F]) = run(response)
-    }  
+    }
 }
 
 /**
@@ -143,7 +148,9 @@ trait EntityDecoderInstances {
   implicit def JsDynamicDecoder[F[_]: Functor]: EntityDecoder[F, js.Dynamic] =
     jsDynamicDecoder()
 
-  /** Filter on JSON value. Create DecodeFailure if filter func returns false. */
+  /** Filter on the JSON value. Create DecodeFailure if filter func returns
+   * false.
+   */
   def JsonDecoderValidate[F[_]: Monad](
     f: js.Dynamic => Boolean,
     failedMsg: String = "Failed validation.",

@@ -63,27 +63,41 @@ object ClientUtils {
 }
 
 /**
- * Client based on browser `fetch`. Why is dataUrl an option, are we accessing the 
- * window document's location URL for a default?
+ * Client based on browser `fetch`. Why is dataUrl an option? Are we accessing
+ * the window document's location URL for a default?
  * 
  * @see https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/fetch
  */
 object Client { 
   import ClientUtils._
 
-  def apply[F[_]](
+  /** Default error maker creates a `CommunicationsFailure`. */
+  def mkError(msg: String, e: Option[Throwable]) =
+    new CommunicationsFailure(msg, e)
+
+  /** 
+   * @tparam F `MonadError` is needed for `attempt` but all errors raised through `ErrorChannel`.
+   * @tparam E Error type if `fetch` results in an error.
+   */
+  def apply[
+    F[_],
+    E <: Throwable
+  ](
     dataUrl: Option[String],
-    baseRequestInit: Option[RequestInit] = None)(
-    implicit F: MonadError[F, Throwable], A: Async[F]
-  ): http.Client[F] = {
+    baseRequestInit: Option[RequestInit] = None,
+    mkError: (String, Option[Throwable]) => E
+  )(
+    implicit A: Async[F], M: MonadError[F, E], EC: ErrorChannel[F,E]
+  ): http.Client[F, E] = {
     val base = dataUrl.map(u => if(u.endsWith("/")) u.dropRight(1) else u).getOrElse("")
+    //val M = MonadError[F,E]
 
     val svc: HttpRequest[F] => F[HttpResponse[F]] = { request =>
       val hashttp = request.path.startsWith("http")
       assert(request.path(0) == '/' || hashttp,
         s"Request path must start with a slash (/) or http: ${request.path}}")
       val url                        = (if (!hashttp) base else "") + request.path
-      F.flatMap(request.body.content){ bodyString =>
+      M.flatMap(request.body.content){ bodyString =>
         val fetchopts = 
           baseRequestInit.getOrElse(RequestInit()).asDict[js.Any] ++
         RequestInit(
@@ -93,18 +107,20 @@ object Client {
               toFetchHeaders(request.headers),
           method = request.method.name.toUpperCase.asInstanceOf[HttpMethod]
         ).asDict[js.Any]
-        Fetch.fetch(url, fetchopts.asInstanceOf[RequestInit]).toF[F].attempt.flatMap {
+        M.flatMap(
+          M.attempt(
+            Fetch.fetch(url, fetchopts.asInstanceOf[RequestInit]).toF[F])) {
           case Right(r) =>
-            F.pure(
+            M.pure(
               HttpResponse[F](
                 Status.lookup(r.status),
                 toHttpHeaders(r.headers),
                 Entity(r.text().toF[F])))
           case Left(e) =>
-            F.raiseError(CommunicationsFailure("browser node fetch client", Some(e)))
+            EC.raise(mkError(s"browser fetch error: ${e.getMessage()}", Option(e)))
         }
       }
     }
-    http.Client(svc)
+    http.Client(svc)(M, EC)
   }
 }

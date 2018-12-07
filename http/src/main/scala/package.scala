@@ -30,7 +30,7 @@ package object http {
    *      Client(client.run, myErrorHandler)
    * }}}
    */
-  type Middleware[F[_]]         = Client[F] => Client[F]
+  type Middleware[F[_],E <: Throwable]         = Client[F,E] => Client[F,E]
 
   /** Basic headers are a dict of strings. Should this be String,String? */
   type HttpHeaders = collection.immutable.Map[String, Seq[String]]

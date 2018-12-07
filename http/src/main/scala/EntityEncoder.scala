@@ -22,7 +22,7 @@ import scala.collection.mutable
  * body itself in this implementation. Length can be calculated directly from
  * the string.
  */
-final case class Entity[+F[_]](content: F[String])
+final case class Entity[F[_]](content: F[String])
 
 object Entity {
 
@@ -33,7 +33,12 @@ object Entity {
       val empty: Entity[F] = Entity.empty[F]
     }
 
-  def empty[F[_]: Applicative]: Entity[F] = Entity(Applicative[F].pure(""))
+  //def empty[F[_]](implicit F: Applicative[F]): Entity[F] = {
+  def empty[F[_]: Applicative]: Entity[F] = {
+    val x = Applicative[F]
+    println(s"Applicative[F] 1: $x, ${Applicative[IO]}")
+    Entity[F](Applicative[F].pure(""))
+  }
 }
 
 

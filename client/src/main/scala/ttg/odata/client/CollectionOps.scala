@@ -17,13 +17,16 @@ import ttg.scalajs.common.fs2helpers._
 /**
   * Misc stream methods.
   */
-trait ClientStreamOps[F[_]] {
-  self: ClientError[F] with HttpResources[F] with ClientFConstraints[F] with ClientRequests[F] =>
+trait ClientStreamOps[F[_], E <: Throwable] {
+  self: ClientError[F,E]
+      with HttpResources[F,E]
+      with ClientFConstraints[F,E]
+      with ClientRequests[F,E] =>
 
   // move from call site to declaration site
   implicit protected val compiler: Stream.Compiler[F,F]
 
-  private type XX[A] = (js.Array[A], Option[String])
+  private type Intermediate[A] = (js.Array[A], Option[String])
 
   /**
     * Get a list of values as a stream. Follows @odata.nextLink. For now, the
@@ -35,7 +38,7 @@ trait ClientStreamOps[F[_]] {
         // Return a F[Option[(Seq[A],Option[String])]]
         case Some(nextLink) =>
           val request = HttpRequest[F](Method.GET, nextLink, headers = headers, body=emptyBody)
-          http.fetch[Option[XX[A]]](request) {
+          http.fetch[Option[Intermediate[A]]](request) {
             case Status.Successful(resp) =>
               F.map(resp.body.content){ str =>
                 val odata = js.JSON.parse(str).asInstanceOf[ValueArrayResponse[A]]
@@ -46,9 +49,9 @@ trait ClientStreamOps[F[_]] {
                 Option((a, odata.nextLink.toOption))
               }
             case failedResponse =>
-              raiseError(failedResponse, s"getListStream $url", Option(request))
+              mkUnexpectedError(s"getListStream $url", request, failedResponse)
           }
-        case None => F.pure(Option.empty[XX[A]])
+        case None => F.pure(Option.empty[Intermediate[A]])
       }
     }
     // Flatten the array (converted to seq) chunks from each unfold iteration
@@ -57,8 +60,12 @@ trait ClientStreamOps[F[_]] {
 }
 
 /** Operations for request entity collections. */
-trait CollectionOps[F[_]] extends ClientStreamOps[F] {
-  self: ClientError[F] with HttpResources[F] with ClientFConstraints[F] with ClientRequests[F] =>
+trait CollectionOps[F[_], E <: Throwable] extends ClientStreamOps[F,E] {
+  self: ClientError[F,E]
+      with HttpResources[F,E]
+      with ClientFConstraints[F,E]
+      with ClientRequests[F,E]
+      with ClientRequests[F,E] =>
 
   /**
     * Get a list of values. Follows @data.nextLink but accumulates all the

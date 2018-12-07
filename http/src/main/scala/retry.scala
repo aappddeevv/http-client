@@ -104,7 +104,7 @@ trait RetryPolicies {
   *  them into account via status TooManyRequests:
   *  @see https://docs.microsoft.com/en-us/dynamics365/customer-engagement/developer/api-limits
   */
-trait RetryMiddleware extends RetryPolicies {
+object retry extends RetryPolicies {
 
   /**
     * Your effect/domain object must be able to express a Throwable "error
@@ -112,41 +112,52 @@ trait RetryMiddleware extends RetryPolicies {
     * strategy filters on different types of errors (exceptions, status,
     * headers, request method, etc.) so that not every `F` error causes a retry.
     */
-  def makeMiddleware[F[_]](policy: RetryPolicy[F])(
-    implicit F: MonadError[F, Throwable], T: Timer[F]): Middleware[F] =
+  def makeMiddleware[
+    F[_]: MonadError[?[_],E]: ErrorChannel[?[_],E],
+    E <: Throwable
+  ](
+    policy: RetryPolicy[F])(
+    implicit T: Timer[F]): Middleware[F,E] =
     client => {
       def runone(req: HttpRequest[F], attempts: Int): F[HttpResponse[F]] =
-        client.run(req).attempt.flatMap {
+        MonadError[F,E].attempt(client.run(req)).flatMap {
           case right @ Right(response) =>
             policy(req, right, attempts) match {
               case Some(duration) =>
                 T.sleep(duration) *> runone(req, attempts+1)
-              case _ => F.pure(response)
+              case _ => MonadError[F,E].pure(response)
             }
 
           case left @ Left(e) =>
             policy(req, left, attempts) match {
               case Some(duration) =>
                 T.sleep(duration) *> runone(req, attempts+1)
-              case _ => F.raiseError(e)
+              case _ => ErrorChannel[F,E].raise(e)
             }
         }
       Client(runone(_,1))
     }
 
-  def pause[F[_]](maxRetries: Int = 5,
-    delayBetween: FiniteDuration = 5.seconds)(
-    implicit F: MonadError[F, Throwable], T: Timer[F]) =
-    makeMiddleware[F](pausePolicy(delayBetween, maxRetries))
+  def pause[
+    F[_]: MonadError[?[_],E]: ErrorChannel[?[_],E]:Timer[?[_]],
+    E<:Throwable
+  ](
+    maxRetries: Int = 5,
+    delayBetween: FiniteDuration = 5.seconds) =
+    makeMiddleware[F,E](pausePolicy(delayBetween, maxRetries))
 
-  def directly[F[_]](maxRetries: Int = 5)(
-    implicit F: MonadError[F, Throwable], T: Timer[F]) =
-    makeMiddleware[F](directlyPolicy(maxRetries))
+  def directly[
+    F[_]:MonadError[?[_],E]:ErrorChannel[?[_],E]:Timer[?[_]],
+    E<:Throwable
+  ](
+    maxRetries: Int = 5) =
+    makeMiddleware[F,E](directlyPolicy(maxRetries))
 
-  def backoff[F[_]](maxRetries: Int = 5,
-    initialDelay: FiniteDuration = 5.seconds)(
-    implicit eh: MonadError[F, Throwable], T: Timer[F]) =
-    makeMiddleware[F](backoffPolicy(initialDelay, maxRetries))
+  def backoff[
+    F[_]: Timer[?[_]]:MonadError[?[_],E]:ErrorChannel[?[_],E],
+    E<:Throwable
+  ](
+    maxRetries: Int = 5,
+    initialDelay: FiniteDuration = 5.seconds) =
+    makeMiddleware[F,E](backoffPolicy(initialDelay, maxRetries))
 }
-
-object retry extends RetryMiddleware

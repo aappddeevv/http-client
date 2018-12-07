@@ -93,6 +93,7 @@ lazy val `browser-fetch` = project
   .settings(description := "odata client based on a browser's fetch")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
   .dependsOn(http,`scalajs-common`)
+  //.settings(requireJsDomEnv in Test := true)
 
 lazy val adal = project
   .settings(dynamicsSettings)

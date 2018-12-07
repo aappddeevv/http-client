@@ -38,6 +38,9 @@ package object client {
     headers.FormattedValue
   )
 
+  /** GUID regex. (scala) */
+  val GUIDReg = """[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}""".r
+
   /** All 0s GUID */
   val zeroGUID = "00000000-0000-0000-0000-000000000000"
 
@@ -68,6 +71,13 @@ package object client {
   /** Remove any attribute that has a `@` annotation in its name. */
   def dropODataFields[O <: js.Object](obj: O, patterns: Seq[String] = defaultODataToOmit): O =
     JSDataHelpers.omitIfMatch(obj.asInstanceOf[js.Dictionary[js.Any]], patterns).asInstanceOf[O]
+
+  /** OData error type that allows you to customize the inner error. The code
+   * message target is not cusomized as often so we set that directly. For most
+   * OData error traits, you should use this unless your OData source employs
+   * highly customized error data structures.
+   */
+  type ODataErrorType[IE <: js.Object] = ErrorResponseDetail[IE, CodeMessageTarget]
 
   /** Cast to CodeMessage if "code" is defined on the object. */
   def maybeError[CM <: CodeMessage]: PartialFunction[js.Object, ErrorResponse[CM]] = {

@@ -13,8 +13,11 @@ import fs2._
 
 import http._
 
-trait ActionOps[F[_]] {
-  self: ClientError[F] with HttpResources[F] with ClientFConstraints[F] with ClientRequests[F] =>
+trait ActionOps[F[_], E<:Throwable] {
+  self: ClientError[F,E]
+      with HttpResources[F,E]
+      with ClientFConstraints[F,E]
+      with ClientRequests[F,E] =>
 
   /**
     * Execute an action. Can be bound or unbound depending on entityCollectionAndId. Action
@@ -25,13 +28,11 @@ trait ActionOps[F[_]] {
   def executeAction[A, B](action: String,
                        body: A,
                        entitySetAndId: Option[(String, String)] = None,
-                       opts: Option[RequestOptions]=None)(implicit E: EntityEncoder[F, A], D: EntityDecoder[F, B]): F[B] = {
+    opts: Option[RequestOptions]=None)(
+    implicit E: EntityEncoder[F, A], D: EntityDecoder[F, B]): F[B] = {
     val request = mkExecuteActionRequest(action, body, entitySetAndId, opts)
-    http.fetch(request) {
-      case Status.Successful(resp) => resp.as[B]
-      case failedResponse =>
-        raiseError(failedResponse, s"Executing action $action, $body, $entitySetAndId", Option(request))
-    }
+    http.expectOr(request)(
+      mkUnexpectedError(s"Executing action $action, $body, $entitySetAndId",_, _))
   }
 
   /** Exceute a bound or unbound function.
@@ -45,8 +46,9 @@ trait ActionOps[F[_]] {
   def executeFunction[A](function: String,
                          parameters: Map[String, scala.Any] = Map.empty,
                          entity: Option[(String, String)] = None)(implicit d: EntityDecoder[F, A]): F[A] = {
-    val req = mkExecuteFunctionRequest(function, parameters, entity)
-    http.expect(req)(d)
+    val request = mkExecuteFunctionRequest(function, parameters, entity)
+    http.expectOr(request)(
+      mkUnexpectedError(s"Execute function: $function", _, _))
   }
   
 }
