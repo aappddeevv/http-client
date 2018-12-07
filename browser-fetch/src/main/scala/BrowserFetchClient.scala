@@ -79,18 +79,15 @@ object Client {
    * @tparam F `MonadError` is needed for `attempt` but all errors raised through `ErrorChannel`.
    * @tparam E Error type if `fetch` results in an error.
    */
-  def apply[
-    F[_],
-    E <: Throwable
-  ](
+  def apply[F[_]](
     dataUrl: Option[String],
     baseRequestInit: Option[RequestInit] = None,
-    mkError: (String, Option[Throwable]) => E
+    mkError: ((String, Option[Throwable]) => Throwable) = mkError
   )(
-    implicit A: Async[F], M: MonadError[F, E], EC: ErrorChannel[F,E]
-  ): http.Client[F, E] = {
+    implicit A: Async[F], M: MonadError[F, Throwable]
+  ): http.Client[F] = {
     val base = dataUrl.map(u => if(u.endsWith("/")) u.dropRight(1) else u).getOrElse("")
-    //val M = MonadError[F,E]
+    val M = MonadError[F,Throwable]
 
     val svc: HttpRequest[F] => F[HttpResponse[F]] = { request =>
       val hashttp = request.path.startsWith("http")
@@ -117,10 +114,10 @@ object Client {
                 toHttpHeaders(r.headers),
                 Entity(r.text().toF[F])))
           case Left(e) =>
-            EC.raise(mkError(s"browser fetch error: ${e.getMessage()}", Option(e)))
+            M.raiseError(mkError(s"browser fetch error: ${e.getMessage()}", Option(e)))
         }
       }
     }
-    http.Client(svc)(M, EC)
+    http.Client(svc)
   }
 }

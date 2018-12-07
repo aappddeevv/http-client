@@ -19,8 +19,8 @@ import http._
  * before this algebra is used. A renderer to render the RequestOptions type is
  * required and hence recursively, a renderer for Prefer values.
  */
-trait ClientRequests[F[_], E <: Throwable] {
-  self: ClientIdRenderer with ClientFConstraints[F,E] =>
+trait ClientRequests[F[_]] {
+  self: ClientIdRenderer with ClientFConstraints[F] =>
   type PreferOptions <: BasicPreferOptions
   type RequestOptions <: BasicRequestOptions[PreferOptions]
 

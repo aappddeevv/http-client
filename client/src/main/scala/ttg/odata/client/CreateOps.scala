@@ -9,11 +9,8 @@ import cats.Monad
 import http._
 import client.instances.odatadecoders._
 
-trait CreateOps[F[_], E<:Throwable] {
-  self: ClientError[F,E]
-      with HttpResources[F,E]
-      with ClientFConstraints[F,E]
-      with ClientRequests[F,E] =>
+trait CreateOps[F[_]] {
+  self: ClientInfrastructure[F] =>
 
   private implicit val _F: Monad[F] = F
 

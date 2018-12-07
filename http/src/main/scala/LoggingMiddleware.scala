@@ -18,29 +18,29 @@ object logging {
   /**
    * Log requests and responses.
    */
-  def both[F[_]: ErrorChannel[?[_], E]: Async, E <: Throwable](
+  def both[F[_]: Async](
     logHeader:Boolean=true,
     logBody:Boolean=true,
-    log: String => F[Unit])(client: Client[F,E]): Client[F,E] =
+    log: String => F[Unit])(client: Client[F]): Client[F] =
     requests(logHeader, logBody, log)(
       responses(logHeader,logBody, log)(
         client))
 
   /** Log requests. */
-  def requests[F[_]: Async: ErrorChannel[?[_],E], E <: Throwable](
+  def requests[F[_]: Async](
     logHeader:Boolean=true,
     logBody:Boolean=true,
-    log: String => F[Unit])(client: Client[F,E]): Client[F,E] =
+    log: String => F[Unit])(client: Client[F]): Client[F] =
     Client{req =>
       //log(req.show) *> client.run(req)
       Async[F].productR(log(req.show))(client.run(req))
     }
 
   /** Log responses. */
-  def responses[F[_]: Async: ErrorChannel[?[_],E], E <: Throwable](
+  def responses[F[_]: Async](
     logHeader:Boolean=true,
     logBody:Boolean=true,
-    log: String => F[Unit])(client: Client[F,E]): Client[F,E] =
+    log: String => F[Unit])(client: Client[F]): Client[F] =
     Client{ req =>
       client.run(req).flatMap{ resp =>
         //log(resp.show) *> F.delay(resp)

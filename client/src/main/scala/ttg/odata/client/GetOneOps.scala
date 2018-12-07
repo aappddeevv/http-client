@@ -15,12 +15,8 @@ import http._
 import client.syntax.queryspec._
 
 /** OData operations for getting a single entity. */
-trait GetOneOps[F[_],E <: Throwable] {
-  self: ClientError[F,E]
-      with HttpResources[F,E]
-      with ClientFConstraints[F,E]
-      with ClientRequests[F,E]
-      with ClientIdRenderer =>
+trait GetOneOps[F[_]] {
+  self: ClientInfrastructure[F] =>
 
   private implicit val _F: Applicative[F] = F
 

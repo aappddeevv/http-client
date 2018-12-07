@@ -24,8 +24,8 @@ import client.instances.odatadecoders._
  * message. This seems too generic actually, this does not raise an `E` so
  * it could only raise a generic error.
  */
-trait ClientError[F[_], E <: Throwable] {
-  self: ClientFConstraints[F, E] =>
+trait ClientError[F[_]] {
+  self: ClientFConstraints[F] =>
 
   /** Raise an error that is captured in the `F` context. */
   def mkUnexpectedError[A](
@@ -34,9 +34,9 @@ trait ClientError[F[_], E <: Throwable] {
     resp: HttpResponse[F]): F[A]
 }
 
-trait HttpResources[F[_],E<:Throwable] {
+trait HttpResources[F[_]] {
   /** HTTP client. */
-  def http: client.http.Client[F,E]
+  def http: client.http.Client[F]
 
   /** The base URL to potentiailly generate some of the OData requests,
    * specifically the multipart batch requests. Can also be used to set the HOST
@@ -49,9 +49,8 @@ trait HttpResources[F[_],E<:Throwable] {
  * just replicate some context bounds so the are only summoned once where
  * needed. These are not made implicit at this level of the client.
  */
-trait ClientFConstraints[F[_], E <: Throwable] {
-  val F: Monad[F]
-  val EC: ErrorChannel[F, E]
+trait ClientFConstraints[F[_]] {
+  val F: MonadError[F, Throwable]
 }
 
 /** Factor out Id rendering from the call sites. */
@@ -65,11 +64,11 @@ trait ClientIdRenderer {
     }
 }
 
-trait ClientInfrastructure[F[_], E <: Throwable]
-    extends ClientError[F,E]
-    with HttpResources[F,E]
-    with ClientFConstraints[F, E]
-    with ClientRequests[F,E]
+trait ClientInfrastructure[F[_]]
+    extends ClientError[F]
+    with HttpResources[F]
+    with ClientFConstraints[F]
+    with ClientRequests[F]
     with ClientIdRenderer
 
 /**
@@ -91,15 +90,15 @@ trait ClientInfrastructure[F[_], E <: Throwable]
   *
  * @tparam F Effect for requests, must be a Monad.
   */
-trait ODataClient[F[_], E <: Throwable]
-    extends ClientInfrastructure[F,E]
-    with CollectionOps[F,E]
-    with UpdateOps[F,E]
-    with AssociateOps[F,E]
-    with GetOneOps[F,E]
-    with ActionOps[F,E]
-    with CreateOps[F,E]
-    with DeleteOps[F,E]
-    with BatchOps[F,E] {
+trait ODataClient[F[_]]
+    extends ClientInfrastructure[F]
+    with CollectionOps[F]
+    with UpdateOps[F]
+    with AssociateOps[F]
+    with GetOneOps[F]
+    with ActionOps[F]
+    with CreateOps[F]
+    with DeleteOps[F]
+    with BatchOps[F] {
   self =>
 }

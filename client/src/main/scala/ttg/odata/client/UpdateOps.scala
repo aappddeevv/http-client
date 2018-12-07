@@ -14,11 +14,8 @@ import fs2._
 import http._
 
 /** OData operations for updating infomation. */
-trait UpdateOps[F[_], E<:Throwable] {
-  self: ClientError[F,E]
-      with HttpResources[F,E]
-      with ClientFConstraints[F,E]
-      with ClientRequests[F,E] =>
+trait UpdateOps[F[_]] {
+  self: ClientInfrastructure[F] =>
 
     /**
     * Update a single property, return the id updated.

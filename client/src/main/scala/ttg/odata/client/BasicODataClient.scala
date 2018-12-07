@@ -23,27 +23,25 @@ import HeaderRenderer._
  * innermost middleware.
  */
 class BasicODataClient[
-  F[_]: Monad: ErrorChannel[?[_],E],
-  IE <: js.Object,
-  E <: ODataException[F, ODataErrorType[IE]]
+  F[_]: MonadError[?[_],Throwable],
+  IE <: js.Object
 ](
-  val http: client.http.Client[F,E],
+  val http: client.http.Client[F],
   val base: String,
-  val mkStatusError: (String, HttpRequest[F], HttpResponse[F]) => F[E]
+  val mkStatusError: (String, HttpRequest[F], HttpResponse[F]) => F[Throwable]
 )(
   implicit C: Stream.Compiler[F,F]
-) extends ODataClient[F, E] {
+) extends ODataClient[F] {
   type PreferOptions = BasicPreferOptions
   type RequestOptions = BasicRequestOptions[PreferOptions]
 
   implicit protected val compiler = C
-  val F = Monad[F]
-  val EC = ErrorChannel[F,E]
+  val F = MonadError[F, Throwable]
   private val prenderer = HeaderRenderer[PreferOptions]
   val optRenderer = HeaderRenderer.instance[RequestOptions](opts => prenderer(opts.prefers))
 
   def mkUnexpectedError[A](msg: String, req: HttpRequest[F], resp: HttpResponse[F]): F[A] =
-    F.flatMap(mkStatusError(msg, req, resp))(EC.raise)
+    F.flatMap(mkStatusError(msg, req, resp))(F.raiseError)
 }
 
 /**
@@ -56,52 +54,47 @@ object BasicODataClient {
 
   /** Create a new `BasicODataClient`. */
   def apply[
-    F[_]: Monad: ErrorChannel[?[_],E],
-    InnerE <: js.Object,
-    E <: ODataException[F, ODataErrorType[InnerE]]
+    F[_]: MonadError[?[_],Throwable],
+    InnerE <: js.Object
   ](
-    httpClient: client.http.Client[F,E],
+    httpClient: client.http.Client[F],
     baseUrl: String,
-    mkUnexpectedStatus: (String, HttpRequest[F], HttpResponse[F]) => F[E]
+    mkUnexpectedStatus: (String, HttpRequest[F], HttpResponse[F]) => F[Throwable]
   )(
     implicit C: Stream.Compiler[F,F]
-  ): ODataClient[F,E] =
-    new BasicODataClient[F, InnerE, E](httpClient, baseUrl, mkUnexpectedStatus)
+  ): ODataClient[F] =
+    new BasicODataClient[F, InnerE](httpClient, baseUrl, mkUnexpectedStatus)
 
   /** Create an OData client layer unexpected status error. Use this for
    * `mkUnexpectedStatus` in `apply`.
    */
   def mkUnexpectedStatus[
-    F[_]: Monad: ErrorChannel[?[_],E],
-    InnerE <: js.Object,
-    E <: ODataException[F, ODataErrorType[InnerE]]
+    F[_]: MonadError[?[_],Throwable],
+    InnerE <: js.Object
   ](
     msg: String, req: HttpRequest[F], resp: HttpResponse[F]
-  ): F[E] =
+  ): F[Throwable] =
     Monad[F].flatMap(resp.body.content){ str =>
       val jsobj = common.Utils
         .parseJsonWithDates[ErrorResponse[ODataErrorType[InnerE]]](str)
-      ErrorChannel[F,E].raise(
+      MonadError[F,Throwable].raiseError(
         new UnexpectedStatus[F, ODataErrorType[InnerE]](
           status = resp.status,
           request = Option(req),
           response = Option(resp),
           odata = Option(jsobj).flatMap(_.error.toOption),
-          note = Option(msg)).asInstanceOf[E]
+          note = Option(msg))
       )}
-
-  /** Set the inner error type explicitly to `js.Object`. */
-  type DefaultThrowableType[F[_]] = ODataException[F, ODataErrorType[js.Object]]
 
   /** Create a new `BasicODataClient` with the inner error as js.Object and a default error maker. */
   def apply[
-    F[_]: Monad: ErrorChannel[?[_],E],
-    E <: DefaultThrowableType[F]
+    F[_]: MonadError[?[_],Throwable]
   ](
-    httpClient: client.http.Client[F, E], baseUrl: String
+    httpClient: client.http.Client[F],
+    baseUrl: String
   )(
     implicit C: Stream.Compiler[F,F]
-  ): ODataClient[F,E] =
-    new BasicODataClient[F,js.Object,E](httpClient, baseUrl, mkUnexpectedStatus[F,js.Object,E])
+  ): ODataClient[F] =
+    new BasicODataClient[F,js.Object](httpClient, baseUrl, mkUnexpectedStatus[F,js.Object])
 }
 

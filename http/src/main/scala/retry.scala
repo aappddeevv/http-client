@@ -112,52 +112,40 @@ object retry extends RetryPolicies {
     * strategy filters on different types of errors (exceptions, status,
     * headers, request method, etc.) so that not every `F` error causes a retry.
     */
-  def makeMiddleware[
-    F[_]: MonadError[?[_],E]: ErrorChannel[?[_],E],
-    E <: Throwable
-  ](
-    policy: RetryPolicy[F])(
-    implicit T: Timer[F]): Middleware[F,E] =
+  def makeMiddleware[F[_]](policy: RetryPolicy[F])(
+    implicit T: Timer[F], M: MonadError[F,Throwable]
+  ): Middleware[F] =
     client => {
       def runone(req: HttpRequest[F], attempts: Int): F[HttpResponse[F]] =
-        MonadError[F,E].attempt(client.run(req)).flatMap {
+        M.attempt(client.run(req)).flatMap {
           case right @ Right(response) =>
             policy(req, right, attempts) match {
               case Some(duration) =>
                 T.sleep(duration) *> runone(req, attempts+1)
-              case _ => MonadError[F,E].pure(response)
+              case _ => M.pure(response)
             }
 
           case left @ Left(e) =>
             policy(req, left, attempts) match {
               case Some(duration) =>
                 T.sleep(duration) *> runone(req, attempts+1)
-              case _ => ErrorChannel[F,E].raise(e)
+              case _ => M.raiseError(e)
             }
         }
       Client(runone(_,1))
     }
 
-  def pause[
-    F[_]: MonadError[?[_],E]: ErrorChannel[?[_],E]:Timer[?[_]],
-    E<:Throwable
-  ](
+  def pause[F[_]: MonadError[?[_],Throwable]: Timer](
     maxRetries: Int = 5,
     delayBetween: FiniteDuration = 5.seconds) =
-    makeMiddleware[F,E](pausePolicy(delayBetween, maxRetries))
+    makeMiddleware[F](pausePolicy(delayBetween, maxRetries))
 
-  def directly[
-    F[_]:MonadError[?[_],E]:ErrorChannel[?[_],E]:Timer[?[_]],
-    E<:Throwable
-  ](
+  def directly[F[_]: MonadError[?[_],Throwable]: Timer ](
     maxRetries: Int = 5) =
-    makeMiddleware[F,E](directlyPolicy(maxRetries))
+    makeMiddleware[F](directlyPolicy(maxRetries))
 
-  def backoff[
-    F[_]: Timer[?[_]]:MonadError[?[_],E]:ErrorChannel[?[_],E],
-    E<:Throwable
-  ](
+  def backoff[F[_]: MonadError[?[_],Throwable]: Timer](
     maxRetries: Int = 5,
     initialDelay: FiniteDuration = 5.seconds) =
-    makeMiddleware[F,E](backoffPolicy(initialDelay, maxRetries))
+    makeMiddleware[F](backoffPolicy(initialDelay, maxRetries))
 }

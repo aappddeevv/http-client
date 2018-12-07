@@ -13,12 +13,8 @@ import fs2._
 
 import http._
 
-trait DeleteOps[F[_],E <: Throwable] {
-  self: ClientError[F,E]
-      with HttpResources[F,E]
-      with ClientFConstraints[F,E]
-      with ClientRequests[F,E]
-      with ClientIdRenderer =>
+trait DeleteOps[F[_]] {
+  self: ClientInfrastructure[F] =>
 
   /** Delete an entity. Return the id passed in for convenience. Return true if
     * the entity does not exist even though this call did not technically delete

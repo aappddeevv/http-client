@@ -13,11 +13,8 @@ import fs2._
 
 import http._
 
-trait ActionOps[F[_], E<:Throwable] {
-  self: ClientError[F,E]
-      with HttpResources[F,E]
-      with ClientFConstraints[F,E]
-      with ClientRequests[F,E] =>
+trait ActionOps[F[_]] {
+  self: ClientInfrastructure[F] =>
 
   /**
     * Execute an action. Can be bound or unbound depending on entityCollectionAndId. Action
