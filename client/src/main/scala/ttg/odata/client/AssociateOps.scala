@@ -12,6 +12,7 @@ import cats.effect._
 import fs2._
 
 import http._
+import http.instances.entityencoder._
 
 /** OData operations for associating/dissociating infomation. */
 trait AssociateOps[F[_]] {

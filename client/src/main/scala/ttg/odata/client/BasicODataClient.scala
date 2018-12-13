@@ -22,21 +22,18 @@ import HeaderRenderer._
  * `UnexpectedStatus` class from this package so use `BasicHttpClient` as the
  * innermost middleware.
  */
-class BasicODataClient[
-  F[_]: MonadError[?[_],Throwable],
-  IE <: js.Object
-](
+class BasicODataClient[F[_], IE <: js.Object](
   val http: client.http.Client[F],
   val base: String,
   val mkStatusError: (String, HttpRequest[F], HttpResponse[F]) => F[Throwable]
 )(
-  implicit C: Stream.Compiler[F,F]
+  implicit C: Stream.Compiler[F,F], M: MonadError[F,Throwable]
 ) extends ODataClient[F] {
   type PreferOptions = BasicPreferOptions
   type RequestOptions = BasicRequestOptions[PreferOptions]
 
   implicit protected val compiler = C
-  val F = MonadError[F, Throwable]
+  val F = M
   private val prenderer = HeaderRenderer[PreferOptions]
   val optRenderer = HeaderRenderer.instance[RequestOptions](opts => prenderer(opts.prefers))
 
@@ -53,10 +50,7 @@ class BasicODataClient[
 object BasicODataClient {
 
   /** Create a new `BasicODataClient`. */
-  def apply[
-    F[_]: MonadError[?[_],Throwable],
-    InnerE <: js.Object
-  ](
+  def apply[F[_]: MonadError[?[_],Throwable], InnerE <: js.Object](
     httpClient: client.http.Client[F],
     baseUrl: String,
     mkUnexpectedStatus: (String, HttpRequest[F], HttpResponse[F]) => F[Throwable]
@@ -68,10 +62,7 @@ object BasicODataClient {
   /** Create an OData client layer unexpected status error. Use this for
    * `mkUnexpectedStatus` in `apply`.
    */
-  def mkUnexpectedStatus[
-    F[_]: MonadError[?[_],Throwable],
-    InnerE <: js.Object
-  ](
+  def mkUnexpectedStatus[F[_]: MonadError[?[_],Throwable], InnerE <: js.Object](
     msg: String, req: HttpRequest[F], resp: HttpResponse[F]
   ): F[Throwable] =
     Monad[F].flatMap(resp.body.content){ str =>
@@ -87,9 +78,7 @@ object BasicODataClient {
       )}
 
   /** Create a new `BasicODataClient` with the inner error as js.Object and a default error maker. */
-  def apply[
-    F[_]: MonadError[?[_],Throwable]
-  ](
+  def apply[F[_]: MonadError[?[_],Throwable]](
     httpClient: client.http.Client[F],
     baseUrl: String
   )(

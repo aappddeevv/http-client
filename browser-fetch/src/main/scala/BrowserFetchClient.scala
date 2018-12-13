@@ -45,7 +45,6 @@ object ClientUtils {
 
   def toHttpHeaders(h: Headers): HttpHeaders =
     HttpHeaders(h.map(entry => (entry(0), entry(1))).toSeq:_*)
-    //HttpHeaders(h.map(entry => (entry(0), entry.drop(1).toSeq)).toSeq:_*)
 
   def toHeaders(h: HeadersInit): Headers =
     h match {
@@ -63,8 +62,7 @@ object ClientUtils {
 }
 
 /**
- * Client based on browser `fetch`. Why is dataUrl an option? Are we accessing
- * the window document's location URL for a default?
+ * Client based on browser `fetch`.
  * 
  * @see https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/fetch
  */
@@ -75,25 +73,25 @@ object Client {
   def mkError(msg: String, e: Option[Throwable]) =
     new CommunicationsFailure(msg, e)
 
-  /** 
+  /** Create client. If a url base is not provided it defaults to the document's location.
+   *
    * @tparam F `MonadError` is needed for `attempt` but all errors raised through `ErrorChannel`.
-   * @tparam E Error type if `fetch` results in an error.
    */
   def apply[F[_]](
-    dataUrl: Option[String],
+    base: Option[String],
     baseRequestInit: Option[RequestInit] = None,
     mkError: ((String, Option[Throwable]) => Throwable) = mkError
   )(
     implicit A: Async[F], M: MonadError[F, Throwable]
   ): http.Client[F] = {
-    val base = dataUrl.map(u => if(u.endsWith("/")) u.dropRight(1) else u).getOrElse("")
+    val url = base.map(u => if(u.endsWith("/")) u.dropRight(1) else u).getOrElse("")
     val M = MonadError[F,Throwable]
 
     val svc: HttpRequest[F] => F[HttpResponse[F]] = { request =>
       val hashttp = request.path.startsWith("http")
       assert(request.path(0) == '/' || hashttp,
         s"Request path must start with a slash (/) or http: ${request.path}}")
-      val url                        = (if (!hashttp) base else "") + request.path
+      val path                        = (if (!hashttp) url else "") + request.path
       M.flatMap(request.body.content){ bodyString =>
         val fetchopts = 
           baseRequestInit.getOrElse(RequestInit()).asDict[js.Any] ++
@@ -106,7 +104,7 @@ object Client {
         ).asDict[js.Any]
         M.flatMap(
           M.attempt(
-            Fetch.fetch(url, fetchopts.asInstanceOf[RequestInit]).toF[F])) {
+            Fetch.fetch(path, fetchopts.asInstanceOf[RequestInit]).toF[F])) {
           case Right(r) =>
             M.pure(
               HttpResponse[F](

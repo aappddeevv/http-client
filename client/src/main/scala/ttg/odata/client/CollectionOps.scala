@@ -25,31 +25,33 @@ trait ClientStreamOps[F[_]] {
 
   private type Intermediate[A] = (js.Array[A], Option[String])
 
+  protected def defaultParse(content: String): js.Dynamic =
+    js.JSON.parse(content)
+
   /**
     * Get a list of values as a stream. Follows @odata.nextLink. For now, the
     * caller must decode external to this method.
     */
   protected def getListAsStream[A](url: String, headers: HttpHeaders): Stream[F, A] = {
+    println("getListAsStream")
     val str: Stream[F, js.Array[A]] = Stream.unfoldEval(Option(url)) {
-      _ match {
-        // Return a F[Option[(Seq[A],Option[String])]]
-        case Some(nextLink) =>
-          val request = HttpRequest[F](Method.GET, nextLink, headers = headers, body=emptyBody)
-          http.fetch[Option[Intermediate[A]]](request) {
-            case Status.Successful(resp) =>
-              F.map(resp.body.content){ str =>
-                val odata = js.JSON.parse(str).asInstanceOf[ValueArrayResponse[A]]
-                // if (logger.isDebugEnabled())
-                //   logger.debug(s"getListStream: body=$str\nodata=${PrettyJson.render(odata)}"
-                val a = odata.value getOrElse js.Array()
-                //println(s"getList: a=$a,\n${PrettyJson.render(a(0).asInstanceOf[js.Object])}")
-                Option((a, odata.nextLink.toOption))
-              }
-            case failedResponse =>
-              mkUnexpectedError(s"getListStream $url", request, failedResponse)
-          }
-        case None => F.pure(Option.empty[Intermediate[A]])
-      }
+      // Return a F[Option[(Seq[A],Option[String])]]
+      case Some(nextLink) =>
+        val request = HttpRequest[F](Method.GET, nextLink, headers=headers, body=emptyBody)
+        http.fetch[Option[Intermediate[A]]](request) {
+          case Status.Successful(resp) =>
+            F.map(resp.body.content){ str =>
+              val odata = defaultParse(str).asInstanceOf[ValueArrayResponse[A]]
+              // if (logger.isDebugEnabled())
+              //   logger.debug(s"getListStream: body=$str\nodata=${PrettyJson.render(odata)}"
+              val a = odata.value getOrElse js.Array()
+              //println(s"getList: a=$a,\n${PrettyJson.render(a(0).asInstanceOf[js.Object])}")
+              Option((a, odata.nextLink.toOption))
+            }
+          case failedResponse =>
+            mkUnexpectedError(s"getListStream $url", request, failedResponse)
+        }
+      case None => F.pure(Option.empty[Intermediate[A]])
     }
     // Flatten the array (converted to seq) chunks from each unfold iteration
     str.map(_.toSeq).flatMap(Stream.emits)

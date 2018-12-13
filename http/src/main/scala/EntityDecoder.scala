@@ -106,7 +106,7 @@ trait EntityDecoder[F[_], T] { self =>
 /** 
  * @todo Define Alternative[EntityDecoder[F[_]]]? We already have `orElse`.
  */
-object EntityDecoder extends EntityDecoderInstances {
+object EntityDecoder {
 
   /** Summoner. */
   def apply[F[_], T](implicit ev: EntityDecoder[F, T]): EntityDecoder[F, T] = ev
@@ -181,7 +181,8 @@ trait EntityDecoderInstances {
     * Ignore the response completely (status and body) and return decode "unit"
     * success. You typically use this decoder with a client type parameter of
     * `Unit` and when you only want to check that a successful status code was
-    * returned or error out otherwise.
+    * returned or error out otherwise. Of course, you could do this at the
+    * client level as well instead of the decoder.
     */
   implicit def void[F[_]: Applicative]: EntityDecoder[F, Unit] =
     EntityDecoder.instance{ _ =>

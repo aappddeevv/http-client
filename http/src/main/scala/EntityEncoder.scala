@@ -33,14 +33,10 @@ object Entity {
       val empty: Entity[F] = Entity.empty[F]
     }
 
-  //def empty[F[_]](implicit F: Applicative[F]): Entity[F] = {
-  def empty[F[_]: Applicative]: Entity[F] = {
-    val x = Applicative[F]
-    println(s"Applicative[F] 1: $x, ${Applicative[IO]}")
-    Entity[F](Applicative[F].pure(""))
-  }
+  // Making this a val causes crash!
+  def empty[F[_]](implicit F: Applicative[F]): Entity[F] =
+    Entity(F.pure(""))
 }
-
 
 /** Simple encoder that encodes a value to a strict value. */
 @implicitNotFound("Cannot find instance of EntityEncoder[${A}].")
@@ -53,10 +49,9 @@ trait EntityEncoder[F[_], A] { self =>
   def contramap[B](f: B => A): EntityEncoder[F, B] = new EntityEncoder[F, B] {
     override def toEntity(b: B): (HttpHeaders, Entity[F]) = self.toEntity(f(b))
   }
-
 }
 
-object EntityEncoder extends EntityEncoderInstances {
+object EntityEncoder {
   /** Summoner. */
   def apply[F[_], A](implicit encoder: EntityEncoder[F,A]): EntityEncoder[F,A] = encoder
 }

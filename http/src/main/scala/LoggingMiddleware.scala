@@ -21,7 +21,10 @@ object logging {
   def both[F[_]: Async](
     logHeader:Boolean=true,
     logBody:Boolean=true,
-    log: String => F[Unit])(client: Client[F]): Client[F] =
+    log: String => F[Unit]
+  )(
+    client: Client[F]
+  ): Client[F] =
     requests(logHeader, logBody, log)(
       responses(logHeader,logBody, log)(
         client))

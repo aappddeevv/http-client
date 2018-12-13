@@ -66,9 +66,9 @@ trait ClientIdRenderer {
 
 trait ClientInfrastructure[F[_]]
     extends ClientError[F]
+    with ClientRequests[F]
     with HttpResources[F]
     with ClientFConstraints[F]
-    with ClientRequests[F]
     with ClientIdRenderer
 
 /**

@@ -24,11 +24,12 @@ trait ClientRequests[F[_]] {
   type PreferOptions <: BasicPreferOptions
   type RequestOptions <: BasicRequestOptions[PreferOptions]
 
+  private implicit val _F: Monad[F] = F
+
   /** Renderer for `RequestOptions`. */
   val optRenderer: HeaderRenderer[RequestOptions]
-  val emptyBody: Entity[F] = Entity.empty[F]
-
-  private implicit val _F: Monad[F] = F
+  // needs to be lazy, bug in compiler?
+  def emptyBody: Entity[F] = Entity(F.pure(""))//Entity.empty[F]
 
   //val DefaultBatchRequest = HttpRequest(Method.PUT, "/$batch", body=emptyBody)
 
@@ -148,23 +149,30 @@ trait ClientRequests[F[_]] {
       ent)
   }
 
+  /**
+   * Parameters are set into the URL as is without quotes even if its a string.
+   * Explicitly provide quotes in your paramater values if you want them. 
+   */
   def mkExecuteFunctionRequest(function: String,
     parameters: Map[String, scala.Any] = Map.empty,
     entity: Option[(String, String)] = None) = {
-    val q: Seq[(String, String)] = parameters.keys.zipWithIndex
-      .map(x => (x._1, x._2 + 1))
-      .map {
-        case (k, i) =>
-          parameters(k) match {
-            case s: String => (s"$k=@p$i", s"@p$i='$s'")
-            case x @ _     => (s"$k=@p$i", s"@p$i=$x")
-          }
-      }
-      .toSeq
+    // val q: Seq[(String, String)] = parameters.keys.zipWithIndex
+    //   .map(x => (x._1, x._2 + 1))
+    //   .map {
+    //     case (k, i) =>
+    //       parameters(k) match {
+    //         //case s: String => (s"$k=@p$i", s"@p$i='$s'")
+    //         case x @ _     => (s"$k=@p$i", s"@p$i=$x")
+    //       }
+    //   }
+    //   .toSeq
+    val q = parameters.map{ case(k,v) =>  s"$k=$v"}
 
-    val pvars        = q.map(_._1).mkString(",")
-    val pvals        = (if (q.size > 0) "?" else "") + q.map(_._2).mkString("&")
-    val functionPart = s"/$function($pvars)$pvals"
+
+    //val pvars        = q.map(_._1).mkString(",")
+    //val pvals        = (if (q.size > 0) "?" else "") + q.map(_._2).mkString("&")
+    //val functionPart = s"/$function($pvars)$pvals"
+    val functionPart = s"""/$function(${q.mkString(",")})"""
 
     val entityPart = entity.map(p => s"/${p._1}(${p._2})").getOrElse("")
 
