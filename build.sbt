@@ -59,9 +59,15 @@ lazy val dynamicsSettings = buildSettings ++ commonSettings
 lazy val root = project.in(file("."))
   .settings(dynamicsSettings)
   .settings(noPublishSettings)
-  .settings(name := "odata-client")
-  .aggregate(http, client, `scalajs-common`,
-    docs, adal, `node-fetch`, `browser-fetch`)
+  .settings(name := "http-client")
+  .aggregate(
+    http,
+    odata,
+    `scalajs-common`,
+    docs,
+    adal,
+    `node-fetch`,
+    `browser-fetch`)
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
 
 lazy val `scalajs-common` = project
@@ -72,14 +78,14 @@ lazy val `scalajs-common` = project
 
 lazy val http = project
   .settings(dynamicsSettings)
-  .settings(name := "odata-client-http")
-  .settings(description := "odata client ")
+  .settings(name := "http-client-http")
+  .settings(description := "HTTP client")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
   .dependsOn(`scalajs-common`)
 
 lazy val `node-fetch` = project
   .settings(dynamicsSettings)
-  .settings(name := "odata-client-node-fetch")
+  .settings(name := "http-client-node-fetch")
   .settings(description := "odata client based on node fetch")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
   .dependsOn(http,`scalajs-common`)
@@ -89,24 +95,23 @@ lazy val `browser-fetch` = project
   .settings(libraryDependencies ++= Seq(
 	"org.scala-js" %%% "scalajs-dom" % "latest.version"
   ))
-  .settings(name := "odata-client-browser-fetch")
-  .settings(description := "odata client based on a browser's fetch")
+  .settings(name := "http-client-browser-fetch")
+  .settings(description := "client based on a browser's fetch API")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
   .dependsOn(http,`scalajs-common`)
   //.settings(requireJsDomEnv in Test := true)
 
 lazy val adal = project
   .settings(dynamicsSettings)
-  .settings(name := "odata-client-adal")
-  .settings(description := "odata active directory authentication")
+  .settings(name := "http-client-adal")
+  .settings(description := "Microsoft AD authentication via adal")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
-  .dependsOn(client, `scalajs-common`)
+  .dependsOn(http, `scalajs-common`)
 
-lazy val client = project
+lazy val odata = project
   .settings(dynamicsSettings)
-  .settings(name := "odata-client-clients")
-  .settings(description := "odata client")
-  // need to get rid of dependency on `scalajs-common`i
+  .settings(name := "http-client-odata")
+  .settings(description := "OData v4 client")
   .dependsOn(http, `scalajs-common`)
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
 
@@ -116,7 +121,7 @@ lazy val docs = project
   .settings(commonSettings)
   .settings(libraryDependencies ++= Dependencies.appDependencies.value)
   .enablePlugins(MicrositesPlugin, ScalaUnidocPlugin, ScalaJSPlugin)
-  .aggregate(client, http, `scalajs-common`, `node-fetch`, `browser-fetch`)
+  .aggregate(odata, http, `scalajs-common`, `node-fetch`, `browser-fetch`)
   .settings(
     micrositeName := "odata-client",
     micrositeDescription := "A Microsoft Dynamics CLI swiss-army knife and browser/server library.",

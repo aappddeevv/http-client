@@ -2,11 +2,12 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.scalajs
+package ttg
+package scalajs
 package common
 
-import scalajs.js
-import scalajs.js._
+import scala.scalajs.js
+import js._
 import fs2._
 import scala.concurrent._
 import duration._

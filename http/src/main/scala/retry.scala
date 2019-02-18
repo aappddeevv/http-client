@@ -2,7 +2,8 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.odata.client
+package ttg
+package client
 package http
 
 import scala.concurrent.duration._
@@ -72,7 +73,7 @@ trait RetryPolicies {
       .getOrElse(fallback)
   }
 
-  def backoffPolicy[F[_]](initialDelay: FiniteDuration = 5.seconds, maxRetries: Int = 5): RetryPolicy[F] =
+  def backoffPolicy[F[_]](initialDelay: FiniteDuration = 5.seconds, maxRetries: Int = 5): RetryPolicy[F,Throwable] =
   {(req, eresp, i) =>
     val sretry = shouldRetry(eresp)
     if(sretry && i == 0 && maxRetries > 0) Some(initialDelay)
@@ -80,14 +81,14 @@ trait RetryPolicies {
     else None
   }
 
-  def pausePolicy[F[_]](delay: FiniteDuration = 5.seconds, maxRetries: Int = 3): RetryPolicy[F] =
+  def pausePolicy[F[_]](delay: FiniteDuration = 5.seconds, maxRetries: Int = 3): RetryPolicy[F,Throwable] =
   {(req, eresp, i) =>
     val sretry = shouldRetry(eresp)
       if(sretry && i < maxRetries) Some(delay)
       else None
     }
 
-  def directlyPolicy[F[_]](maxRetries: Int = 3): RetryPolicy[F] =
+  def directlyPolicy[F[_]](maxRetries: Int = 3): RetryPolicy[F,Throwable] =
   {(req, eresp, i) =>
     val sretry = shouldRetry(eresp)
     if(sretry && i < maxRetries) Some(FiniteDuration(0, MILLISECONDS))
@@ -112,9 +113,9 @@ object retry extends RetryPolicies {
     * strategy filters on different types of errors (exceptions, status,
     * headers, request method, etc.) so that not every `F` error causes a retry.
     */
-  def makeMiddleware[F[_]](policy: RetryPolicy[F])(
+  def makeMiddleware[F[_]](policy: RetryPolicy[F, Throwable])(
     implicit T: Timer[F], M: MonadError[F,Throwable]
-  ): Middleware[F] =
+  ): Middleware[F, Throwable] =
     client => {
       def runone(req: HttpRequest[F], attempts: Int): F[HttpResponse[F]] =
         M.attempt(client.run(req)).flatMap {

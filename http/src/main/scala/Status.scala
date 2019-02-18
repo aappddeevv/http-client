@@ -2,7 +2,8 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.odata.client
+package ttg
+package client
 package http
 
 import cats._
@@ -15,6 +16,7 @@ import cats.implicits._
   * {{{
   * client.fetch(...) {
   *  case Status(200)(response) => decode the response
+ * //or Status.Successful(response) => decode the response
   *  case failedResponse => Task.fail(...)
   * }
   * }}}

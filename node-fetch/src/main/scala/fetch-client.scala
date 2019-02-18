@@ -2,8 +2,9 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.odata.client
-package http
+package ttg
+package client
+package nodefetch
 
 import scala.scalajs.js
 import js.{|, _}
@@ -16,12 +17,13 @@ import cats.implicits._
 import cats.effect._
 import js.JSConverters._
 import scala.annotation.implicitNotFound
-import org.slf4j._
 
-import dynamics.common._
+import org.slf4j._
+import ttg.scalajs.common._
 import fs2helpers._
-import dynamics.http.implicits._
-import dynamics.common.implicits._
+import ttg.client.http
+import http._
+import http.implicits._
 
 /*
 object StreamingClient {
@@ -183,7 +185,8 @@ object NodeFetchClient extends LazyLogger {
       if (info.dataUrl.get.endsWith("/")) info.dataUrl.get.dropRight(1)
       else info.dataUrl.get
 
-    val svc: Kleisli[F, HttpRequest[F], DisposableResponse[F]] = Kleisli { request =>
+    // was DisposableResponose
+    val svc: Kleisli[F, HttpRequest[F], Response[F]] = Kleisli { request =>
       val hashttp = request.path.startsWith("http")
       assert(request.path(0) == '/' || hashttp, s"Request path must start with a slash (/) or http: ${request.path}}")
       val mergedHeaders: HttpHeaders = defaultHeaders ++ request.headers
@@ -208,8 +211,8 @@ object NodeFetchClient extends LazyLogger {
             // convert headers as String -> Seq[String] to just String -> String, is this wrong?
             val headers: HttpHeaders = r.headers.raw().mapValues(_.toSeq).toMap
             //.asInstanceOf[js.Dictionary[Seq[String]]]
-            val hresp = HttpResponse[F](Status.lookup(r.status), headers, PtoIO(r.text()))
-            val dr    = DisposableResponse(hresp, donothing)
+            val dr = HttpResponse[F](Status.lookup(r.status), headers, PtoIO(r.text()))
+            //val dr    = HttpResponse(hresp, donothing)
             if (debug) {
               logger.debug(s"FETCH RESPONSE: $dr")
               //println(s"Raw headers: ${Utils.pprint(r.headers.raw2().asInstanceOf[js.Dynamic])}")

@@ -2,7 +2,8 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.odata.client
+package ttg
+package client
 package http
 
 import fs2.Stream
@@ -11,8 +12,8 @@ import cats.data._
 import cats.implicits._
 
 private[http]
-abstract class DefaultClient[F[_]: MonadError[?[_], Throwable]]
-extends Client[F] {
+abstract class DefaultClient[F[_]: MonadError[?[_], E], E]
+extends Client[F, E] {
 
   def fetch[A](request: HttpRequest[F])(f: HttpResponse[F] => F[A]): F[A] =
     run(request).flatMap(f)
@@ -20,18 +21,17 @@ extends Client[F] {
   def fetch[A](request: F[HttpRequest[F]])(f: HttpResponse[F] => F[A]): F[A] =
     request.flatMap(fetch(_)(f))
 
-  def expectOr[A](req: HttpRequest[F])(onError: (HttpRequest[F], HttpResponse[F]) => F[Throwable])(
-      implicit d: EntityDecoder[F, A]): F[A] = {
+  def expectOr[A](req: HttpRequest[F])(onError: (HttpRequest[F], HttpResponse[F]) => F[E])(
+      implicit d: EntityDecoder[F, A]): F[A] =
     fetch(req) {
       case Status.Successful(resp) =>
         // same as resp.as[B] when using syntax
         d.decode(resp).fold(throw _, identity)
       case failedResponse =>
-        onError(req, failedResponse).flatMap(MonadError[F,Throwable].raiseError)
+        onError(req, failedResponse).flatMap(MonadError[F,E].raiseError)
     }
-  }
 
-  def expectOr[A](req: F[HttpRequest[F]])(onError: (HttpRequest[F], HttpResponse[F]) => F[Throwable])(
+  def expectOr[A](req: F[HttpRequest[F]])(onError: (HttpRequest[F], HttpResponse[F]) => F[E])(
     implicit d: EntityDecoder[F, A]): F[A] =
     Monad[F].flatMap(req)(expectOr(_)(onError))
   

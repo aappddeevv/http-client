@@ -2,14 +2,13 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.odata
+package ttg
 package client
 package browserfetch
 
 import scala.scalajs.js
 import org.scalajs.dom
 import dom.experimental._
-import js.Dynamic.{global => g, newInstance => jsnew, literal => jsobj}
 
 import cats._
 import cats.data._
@@ -17,8 +16,9 @@ import cats.implicits._
 import cats.effect._
 import js.JSConverters._
 
+import ttg.scalajs.common
 import client.http._
-import ttg.scalajs.common.implicits._
+import ttg.scalajs.common.syntax.jspromise._
 
 /** Fix some of the header conversions...need to use getAll. */
 object ClientUtils {
@@ -35,6 +35,7 @@ object ClientUtils {
 
   /** Zero for Headers. Treat as immutable even though it's not. */
   lazy val emptyHeaders: Headers = new Headers()
+  lazy val emptyRequestInit: RequestInit = RequestInit()
 
   /** Convert HtppHeaders to Headers. */
   def toFetchHeaders(h: HttpHeaders): Headers = {
@@ -59,6 +60,10 @@ object ClientUtils {
         r
       case _ => new Headers()
     }
+
+  def combine(lhs: RequestInit, rhs: RequestInit): RequestInit =
+    common.Utils.merge[RequestInit](lhs, rhs)
+
 }
 
 /**
@@ -69,53 +74,74 @@ object ClientUtils {
 object Client { 
   import ClientUtils._
 
-  /** Default error maker creates a `CommunicationsFailure`. */
-  def mkError(msg: String, e: Option[Throwable]) =
-    new CommunicationsFailure(msg, e)
+  /** Using `Async` forces the error type to Throwable. All exceptions are wrapped
+   * with a `CommunicationsFailure` exception by default since the response
+   * status is not observed. This converts the body to text using `Body.text()`
+   * by default but it can be changed by adding a tag, `body = blob` to use
+   * `Body.blob()`.
+   */
+  def run[F[_]: Async](
+    mkError: (String, Throwable) => Throwable =
+      (m,e) => new CommunicationsFailure(s"$m: ${e.getMessage()}",Option(e))
+  )(
+    request: F[dom.experimental.Response] // request generates a response
+  ): F[HttpResponse[F]] = {
+    val M = Async[F]
+    M.flatMap(
+      M.attempt(request)) {
+      case Right(r) =>
+        M.pure(
+          HttpResponse[F](
+            Status.lookup(r.status),
+            toHttpHeaders(r.headers),
+            Entity(r.text().toF[F])))
+      case Left(e) =>
+        M.raiseError(mkError("browser fetch error",e))
+    }
+  }
 
-  /** Create client. If a url base is not provided it defaults to the document's location.
-   *
-   * @tparam F `MonadError` is needed for `attempt` but all errors raised through `ErrorChannel`.
+  /** Create client based on the browser's fetch function. If a url base is not
+    * provided it defaults to the document's location. This method formulates
+    * the browser fetch Request object. `run` runs the fetch and converts the
+    * result to a `HttpResponse`. Using `run` you can customize your effects
+    * and error type.
+   * @param base Base URL appended to all requests.
+   * @param run Run the input effect and create an output effect.
+   * @param convert Convert js.Promise to F. You can use common.jsPromiseToF.
+   * @param mkClient Given a Kleisli, make a `Client`. You an use `http.Client.apply`.
+   * @tparam A FlatMap to map into the HttpRequest's body.
+   * asynchronously.
    */
   def apply[F[_]](
     base: Option[String],
-    baseRequestInit: Option[RequestInit] = None,
-    mkError: ((String, Option[Throwable]) => Throwable) = mkError
+    run: F[dom.experimental.Response] => F[HttpResponse[F]],
+    mkClient: (HttpRequest[F] => F[HttpResponse[F]]) => Client[F, Throwable],    
+    convert: js.Promise ~> F,
+    baseRequestInit: Option[RequestInit] = None
   )(
-    implicit A: Async[F], M: MonadError[F, Throwable]
-  ): http.Client[F] = {
+    implicit A: FlatMap[F]
+  ): http.Client[F,Throwable] = {
     val url = base.map(u => if(u.endsWith("/")) u.dropRight(1) else u).getOrElse("")
-    val M = MonadError[F,Throwable]
-
     val svc: HttpRequest[F] => F[HttpResponse[F]] = { request =>
       val hashttp = request.path.startsWith("http")
+      // this should not be assert() here, this is out of the error channel!
       assert(request.path(0) == '/' || hashttp,
         s"Request path must start with a slash (/) or http: ${request.path}}")
       val path                        = (if (!hashttp) url else "") + request.path
-      M.flatMap(request.body.content){ bodyString =>
-        val fetchopts = 
-          baseRequestInit.getOrElse(RequestInit()).asDict[js.Any] ++
-        RequestInit(
-          body = bodyString,
-          headers = 
-            baseRequestInit.flatMap(_.headers.map(toHeaders(_)).toOption).getOrElse(emptyHeaders) |+|
-              toFetchHeaders(request.headers),
-          method = request.method.name.toUpperCase.asInstanceOf[HttpMethod]
-        ).asDict[js.Any]
-        M.flatMap(
-          M.attempt(
-            Fetch.fetch(path, fetchopts.asInstanceOf[RequestInit]).toF[F])) {
-          case Right(r) =>
-            M.pure(
-              HttpResponse[F](
-                Status.lookup(r.status),
-                toHttpHeaders(r.headers),
-                Entity(r.text().toF[F])))
-          case Left(e) =>
-            M.raiseError(mkError(s"browser fetch error: ${e.getMessage()}", Option(e)))
-        }
+      A.flatMap(request.body.content){ bodyString =>
+        // merge RequestInits taking care to merge headers correctly
+        val fetchopts = combine(
+          baseRequestInit.getOrElse[RequestInit](emptyRequestInit),
+          RequestInit(
+            body = if(request.method==Method.GET) js.undefined else bodyString,
+            headers =
+              baseRequestInit.flatMap(_.headers.map(toHeaders(_)).toOption).getOrElse(emptyHeaders) |+|
+                toFetchHeaders(request.headers),
+            method = request.method.asString.asInstanceOf[HttpMethod]
+          ))
+        run(convert(Fetch.fetch(path, fetchopts)))
       }
     }
-    http.Client(svc)
+    mkClient(svc)
   }
 }

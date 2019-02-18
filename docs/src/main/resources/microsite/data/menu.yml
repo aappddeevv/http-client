@@ -1,3 +1,9 @@
 options:
   - title: Getting Started
     url: docs/index.html
+    
+  - http: HTTP Layer
+    url: docs/http.html
+
+  - odata: OData v4 Layer
+    url: docs/odata.html

@@ -2,7 +2,8 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.odata.client
+package ttg
+package client
 package http
 
 import fs2._
@@ -112,7 +113,7 @@ object Multipart extends RenderConstants {
     p match {
       case SinglePart(req, xtra) =>
         val partHeaders = StandardPartHeaders ++ xtra
-        val method      = s"${req.method.name} ${req.path} HTTP/1.1"
+        val method      = s"${req.method.asString} ${req.path} HTTP/1.1"
 
         // this seems disruptive, but its malformed if its not right...
         if (!req.headers.contains("Host") && !req.path.startsWith("http"))
@@ -131,7 +132,9 @@ object Multipart extends RenderConstants {
         val partsAsTasks = parts.map { p =>
           // add Content-ID if not present in the xtra headers in the part.
           val withContentId =
-            HttpHeaders.from("Content-ID" -> p.xtra.get("Content-ID").getOrElse(Seq(Boundary.generate())))
+            HttpHeaders.seqPairs(
+              "Content-ID" ->
+                p.xtra.get("Content-ID").getOrElse(Seq(Boundary.generate())))
           // Ensure type=entry if not present in the seq attached to content-type header or
           // add the entire content-type header if its missing.
           val modifiedOrOrigCT =
@@ -140,11 +143,13 @@ object Multipart extends RenderConstants {
               case (seq, _)                 => seq :+ "type=entry"
             }
           val newCT: HttpHeaders =
-            HttpHeaders.from("Content-Type" -> Seq("application/json", "type=entry")) ++
-              modifiedOrOrigCT.map(ctvalue => HttpHeaders.from("Content-Type" -> ctvalue)).getOrElse(HttpHeaders.empty)
+            HttpHeaders.seqPairs("Content-Type" -> Seq("application/json", "type=entry")) ++
+          modifiedOrOrigCT.map(ctvalue =>
+            HttpHeaders.seqPairs("Content-Type" -> ctvalue)).getOrElse(HttpHeaders.empty)
 
           val modified =
-            p.copy(request = p.request.copy(headers = p.request.headers ++ newCT), xtra = p.xtra ++ withContentId)
+            p.copy(request = p.request.copy(headers =
+              p.request.headers ++ newCT), xtra = p.xtra ++ withContentId)
           Monad[F].map(renderPart(modified))(rest => renderBoundary(b, false) + rest)
         }
         Monad[F].map(partsAsTasks.toList.sequence)(

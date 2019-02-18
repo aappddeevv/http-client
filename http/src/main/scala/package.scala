@@ -2,8 +2,10 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.odata.client
+package ttg
+package client
 
+import io.estatico.newtype.macros.newtype
 import scala.scalajs.js
 import collection.mutable
 import concurrent.duration.FiniteDuration
@@ -30,7 +32,7 @@ package object http {
    *      Client(client.run, myErrorHandler)
    * }}}
    */
-  type Middleware[F[_]]         = Client[F] => Client[F]
+  type Middleware[F[_],E]         = Client[F,E] => Client[F,E]
 
   /** Basic headers are a dict of strings. Should this be String,String? */
   type HttpHeaders = collection.immutable.Map[String, Seq[String]]
@@ -48,10 +50,37 @@ package object http {
   /** This old type spec assumes F can carry an error, which may not be true and
    * we may need to detect the request type e.g. GET as part of the criteria.
    */
-  type RetryPolicy[F[_]] =
-    (HttpRequest[F], Either[Throwable, HttpResponse[F]], Int) => Option[FiniteDuration]
+  type RetryPolicy[F[_], E] =
+    (HttpRequest[F], Either[E, HttpResponse[F]], Int) => Option[FiniteDuration]
 
   /** Reviver used when decoding using javascript engine decoder. */
   type Reviver = js.Function2[js.Any, js.Any, js.Any]
+
+  case class Method (asString: String) extends AnyVal
+  object Method {
+    val GET    = Method("GET")
+    val POST   = Method("POST")
+    val DELETE = Method("DELETE")
+    val PATCH  = Method("PATCH")
+    val PUT    = Method("PUT")
+    val QUERY    = Method("QUERY")
+    val HEAD    = Method("HEAD")
+    val OPTIONS    = Method("OPTIONS")
+
+    val all = Seq(GET, POST, DELETE, POST, PUT, QUERY, HEAD, OPTIONS)
+  }
+
+  /**
+   * Start an empty GET request with some common headers and an empty body.
+   * Use this to start your requests using a builder-like syntax.
+   */
+  def empty = HttpRequestNoBody(method = Method.GET, path = "")
+
+  /** A starting request that has gzip and deflate in header. */
+  def request = HttpRequestNoBody(
+    method = Method.GET,
+    path = "",
+    headers = HttpHeaders(HttpHeaders.AcceptEncoding -> "gzip, inflate")
+  )
 
 }

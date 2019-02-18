@@ -2,9 +2,11 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.odata.client
+package ttg
+package client
 package http
 
+import io.estatico.newtype.macros.newtype
 import scala.scalajs.js
 import scala.concurrent.ExecutionContext
 import js.annotation._
@@ -46,67 +48,59 @@ trait MessageOps[F[_]] extends Any {
     attemptAs.fold(throw _, identity)
 }
 
-object HttpHeaders {
-  val empty: HttpHeaders = collection.immutable.Map[String, Seq[String]]()
-
-  /** Create headers from pairs of strings. Use something else to add String -> Seq[String]. */
-  def apply(properties: (String, String)*): HttpHeaders = {
-    val p = properties.map(d => (d._1, Seq(d._2)))
-    collection.immutable.Map(p: _*)
-  }
-
-  /** Create from String -> Seq[String] pairs. */
-  def from(properties: (String, Seq[String])*): HttpHeaders = properties.toMap
-
-  /** Make a Content-ID header. */
-  def contentId(id: String) = HttpHeaders("Content-ID" -> id)
-
-  /** Render to a String. Newline is added on end if any content is rendered. */
-  def render(h: HttpHeaders): String = {
-    val sb = new StringBuilder()
-    h.foreach {
-      case (k, arr) =>
-        val v = h(k).mkString(";")
-        sb.append(s"$k: $v\r\n")
-    }
-    sb.toString()
-  }
-}
-
-/** Wrapper type for a Method. */
-sealed case class Method private (name: String)
-
-object Method {
-  val GET    = Method("GET")
-  val POST   = Method("POST")
-  val DELETE = Method("DELETE")
-  val PATCH  = Method("PATCH")
-  val PUT    = Method("PUT")
-  val QUERY    = Method("QUERY")
-  val HEAD    = Method("HEAD")
-  val OPTIONS    = Method("OPTIONS")
-
-  val all = Seq(GET, POST, DELETE, POST, PUT, QUERY, HEAD, OPTIONS)
-}
-
 trait MethodInstances {
   implicit val showForMethod: Show[Method] = Show.fromToString
 }
 
-/** HTTP request. */
-case class HttpRequest[F[_]](
-  method: Method,
-  path: String,
-  headers: HttpHeaders = HttpHeaders.empty,
-  body: Entity[F],
-  /** For backend use, if needed. */
-  tags: Map[String, scala.Any] = Map())
-    extends Message[F]
+/** Basic HTTP request. */
+sealed trait HttpRequestInfo {
+  def method: Method
+  def path: String
+  def headers: HttpHeaders
+  /* For backend use. */
+  def tags: Map[String, scala.Any]
+}
+
+/** Request with on body, typical of a GET. */
+case class HttpRequestNoBody(
+  val method: Method,
+  val path: String,
+  val headers: HttpHeaders = HttpHeaders.empty,
+  val tags: Map[String, scala.Any] = Map()
+) extends HttpRequestInfo { self =>
+
+  def body[B[_]](body: Entity[B]) = HttpRequest[B](
+    method = self.method,
+    path = self.path,
+    headers = self.headers,
+    tags = self.tags,
+    body
+  )
+}
+
+/** HTTP request with a body that is specified in a body effect, potentially
+ * different than the effect used asynchronously in a request, response cycle.
+ * It's alot easier if your asynchronous effect type matches the body's effect
+ * type.
+ */
+case class HttpRequest[B[_]](
+  val method: Method,
+  val path: String,
+  val headers: HttpHeaders = HttpHeaders.empty,
+  val tags: Map[String, scala.Any] = Map(),
+  val body: Entity[B]
+)
+    extends Message[B] with HttpRequestInfo { self =>
+
+  def decodeWith[T](decoder: EntityDecoder[B, T]) =
+    DecodableRequest[B, T](self, decoder)
+
+}
 
 object HttpRequest {
   implicit def show[F[_]]: Show[HttpRequest[F]] = Show.fromToString
 
-  /** Convert a request to a response with a specific status. */
+  /** Convert a request to a response via "copy" with a specific status. */
   def toResponse[F[_]](request: HttpRequest[F], status: Status = Status.OK): HttpResponse[F] =
     HttpResponse(
       status = status,
@@ -115,6 +109,12 @@ object HttpRequest {
       tags = request.tags
     )
 }
+
+/** A request that has a decoder to decode the response. */
+case class DecodableRequest[B[_], T](
+  request: HttpRequest[B],
+  decoder: EntityDecoder[B, T]
+)
 
 /** HTTP response. */
 case class HttpResponse[F[_]](

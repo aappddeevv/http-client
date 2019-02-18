@@ -2,11 +2,12 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.scalajs
+package ttg
+package scalajs
 package common
 
 import scala.scalajs.js
-import scalajs.runtime.wrapJavaScriptException
+import scala.scalajs.runtime.wrapJavaScriptException
 import cats.effect._
 
 /** Some small support to convert callback APIs in node to a cats effect.  This

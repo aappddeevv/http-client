@@ -2,7 +2,8 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.scalajs
+package ttg
+package scalajs
 package common
 
 import java.io._
@@ -81,7 +82,7 @@ object Utils {
     * This is really just a Semigroup "combine" operation but it does *not* use
     * "combine" at lower levels of the structure i.e. a shallow copy. Last
     * object's fields wins. Handles null inputs. Not sure thihs is named
-    * correctly should be mergeJSDynamic :-).
+    * correctly should be mergeJSDynamic :-). Returns newly allocated object.
     *
     * @see https://stackoverflow.com/questions/36561209/is-it-possible-to-combine-two-js-dynamic-objects
     */
@@ -96,9 +97,9 @@ object Utils {
   }
 
   /**
-    * Merge objects and Ts together. Good for merging props with data-
-    * attributes. Handles null inputs.  See the note from
-    * [[mergeJSObjects]]. Last object's fields win.
+    * Merge objects and Ts together into a newly allocated object. Good for
+    * merging props with data- attributes. Handles null inputs.  See the note
+    * from [[mergeJSObjects]]. Last object's fields win.
     */
   @inline def merge[T <: js.Object](objs: T | js.Dynamic*): T = {
     val result = js.Dictionary.empty[Any]

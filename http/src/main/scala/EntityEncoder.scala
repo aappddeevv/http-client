@@ -2,7 +2,8 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.odata.client
+package ttg
+package client
 package http
 
 import scala.scalajs.js
@@ -16,27 +17,6 @@ import cats.effect._
 import js.JSConverters._
 import scala.annotation.implicitNotFound
 import scala.collection.mutable
-
-/**
- * Keep it simple, entity body is ultimately a string...skip streams for the
- * body itself in this implementation. Length can be calculated directly from
- * the string.
- */
-final case class Entity[F[_]](content: F[String])
-
-object Entity {
-
-  implicit def entityMonoid[F[_]](implicit A: Applicative[F]): Monoid[Entity[F]] =
-    new Monoid[Entity[F]] {
-      def combine(l: Entity[F], r: Entity[F]): Entity[F] =
-        Entity((l.content,r.content).mapN(_ + _))
-      val empty: Entity[F] = Entity.empty[F]
-    }
-
-  // Making this a val causes crash!
-  def empty[F[_]](implicit F: Applicative[F]): Entity[F] =
-    Entity(F.pure(""))
-}
 
 /** Simple encoder that encodes a value to a strict value. */
 @implicitNotFound("Cannot find instance of EntityEncoder[${A}].")

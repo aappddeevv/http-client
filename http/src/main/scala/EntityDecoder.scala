@@ -2,7 +2,8 @@
 // This software is licensed under the MIT License (MIT).
 // For more information see LICENSE or https://opensource.org/licenses/MIT
 
-package ttg.odata.client
+package ttg
+package client
 package http
 
 import scala.scalajs.js
@@ -16,13 +17,14 @@ import scala.annotation.implicitNotFound
 import scala.collection.mutable
 
 /**
-  * Decode a Message to a DecodeResult. After decoding you have a DecodeResult
-  * which is co-product (either) an error or a value. You can fold on the decode
-  * result to work with either side e.g. `mydecoderesult.fold(throw _,
+  * Decode a Message to a DecodeResult in the context of an effect, F, used to
+  * obtain the response. After decoding you have a DecodeResult which is
+  * co-product (either) an error or a value. You can fold on the decode result
+  * to work with either side e.g. `mydecoderesult.fold(throw _,
   * identity)`. `EntityDecoder` is really a Kleisli: `Message => DecodeResult`
   * which is `Message[F] => F[Either[DecodeFailure, A]]`. In most client
   * implementations, decoders are only called on successfull results so there
-  * the decode method only receives headers and body to decode.
+  * the decode method receives headers and body.
   */
 @implicitNotFound("Cannot find instance of EntityDecoder[${T}].")
 trait EntityDecoder[F[_], T] { self =>
@@ -134,6 +136,14 @@ trait EntityDecoderInstances {
       DecodeResult.success(msg.body.content)
     }
 
+  /* Decode to js.Object but do not use JSON.parse. Raw cast of theh content. This
+   * is really the same as TextDecoder.
+   */
+  def rawDecoder[F[_]: Functor]: EntityDecoder[F, js.Object] =
+    EntityDecoder.instance[F, js.Object](
+      msg => DecodeResult.success(Functor[F].map(msg.body.content)(_.asInstanceOf[js.Object]))
+    )
+
   /**
     * Parsed into JSON using JSON.parse(). JSON parse could return a simple
     * value, not a JS object. Having said that, all response bodies (for valid
@@ -172,10 +182,16 @@ trait EntityDecoderInstances {
     jsDynamicDecoder(reviver).map(_.asInstanceOf[A])
 
   /**
-   * Decode a js.Object => A. 
+   * Decode a js.Object => A.  This shoulud pull in any subclass of js.Object as
+   * well.
    */
   implicit def JsObjectDecoder[F[_]: Functor, A <: js.Object]: EntityDecoder[F,A] =
     jsObjectDecoder()
+
+  /** Decode to a Blob, which in scala.js, is a subclass of js.Object. */
+  // Don't pull Blob which requires orcg.scalajs.dom.
+  //implicit def BlobObjectDecoder[F[_]: Functor]: EntityDecoder[F, Blob] =
+  //  jsObjectDecoder()
 
   /**
     * Ignore the response completely (status and body) and return decode "unit"
