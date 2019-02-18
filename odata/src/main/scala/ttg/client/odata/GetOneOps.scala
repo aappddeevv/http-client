@@ -16,8 +16,12 @@ import http._
 import odata.syntax.queryspec._
 
 /** OData operations for getting a single entity. */
-trait GetOneOps[F[_]] {
-  self: ClientInfrastructure[F] =>
+trait GetOneOps[
+  F[_],
+  PreferOptions <: BasicPreferOptions,
+  RequestOptions <: BasicRequestOptions[PreferOptions]
+]{
+  self: ClientInfrastructure[F, PreferOptions, RequestOptions] =>
 
   private implicit val _F: Applicative[F] = F
 

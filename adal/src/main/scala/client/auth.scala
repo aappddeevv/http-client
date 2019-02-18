@@ -4,7 +4,7 @@
 
 package ttg
 package client
-package adal
+package msad
 
 import scala.language.higherKinds
 import scalajs.js

@@ -18,7 +18,7 @@ import js.JSConverters._
 
 import ttg.scalajs.common
 import client.http._
-import ttg.scalajs.common.syntax.jspromise._
+import common.syntax.jspromise._
 
 /** Fix some of the header conversions...need to use getAll. */
 object ClientUtils {

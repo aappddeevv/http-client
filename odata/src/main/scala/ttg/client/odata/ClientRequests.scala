@@ -20,10 +20,15 @@ import http._
  * before this algebra is used. A renderer to render the RequestOptions type is
  * required and hence recursively, a renderer for Prefer values.
  */
-trait ClientRequests[F[_]] {
+trait ClientRequests[
+  F[_],
+  PreferOptions <: BasicPreferOptions,
+  RequestOptions <: BasicRequestOptions[PreferOptions]
+] {
   self: ClientIdRenderer with ClientFConstraints[F] =>
-  type PreferOptions <: BasicPreferOptions
-  type RequestOptions <: BasicRequestOptions[PreferOptions]
+
+  //type PreferOptions <: BasicPreferOptions
+  //type RequestOptions <: BasicRequestOptions[PreferOptions]
 
   private implicit val _F: Monad[F] = F
 

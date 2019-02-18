@@ -14,8 +14,12 @@ import fs2._
 
 import http._
 
-trait BatchOps[F[_]] {
-  self: ClientInfrastructure[F] =>
+trait BatchOps[
+  F[_],
+  PreferOptions <: BasicPreferOptions,
+  RequestOptions <: BasicRequestOptions[PreferOptions]
+] {
+  self: ClientInfrastructure[F, PreferOptions, RequestOptions] =>
 
   /**
     * Run a batch request. Dynamics batch requests are POSTs.

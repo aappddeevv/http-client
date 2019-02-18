@@ -1,4 +1,3 @@
-// 1.0.0-M3 or 0.6.26 by default
 val scalaJSVersion =
   Option(System.getenv("SCALAJS_VERSION")).getOrElse("0.6.26")
 

@@ -16,27 +16,28 @@ import http._
 import HeaderRenderer._
 
 /**
- * Simple OData client based on the contents of this package. You can use this
- * directly for simple OData client needs based on a generic OData server. You
- * should customize raising an error as the default strategy is fairly
- * unhelpful. You will want to use a http client that uses the
- * `UnexpectedStatus` class from this package so use `BasicHttpClient` as the
- * innermost middleware.
+ * OData client based on the contents of this package. You can use this directly
+ * for simple OData client needs based on a generic OData server. You should
+ * customize raising an error as the default strategy is fairly unhelpful. You
+ * will want to use a http client that uses the `UnexpectedStatus` class from
+ * this package so use `BasicHttpClient` as the innermost middleware.
  * 
  * Users of this client generally listen for errors the specific `http.Client`
  * generates as well as the unexpected status errors the odata layer can create.
  */
-class BasicODataClient[F[_]](
+class BasicODataClient[
+  F[_],
+  PreferOptions <: BasicPreferOptions,
+  RequestOptions <: BasicRequestOptions[PreferOptions]
+](
   val http: client.http.Client[F,Throwable],
   val base: String,
-  mkStatusError: (String, HttpRequest[F], HttpResponse[F]) => F[Throwable],
-  reportError: F[Throwable] => F[Throwable]
+  val mkStatusError: (String, HttpRequest[F], HttpResponse[F]) => F[Throwable],
+  val reportError: F[Throwable] => F[Throwable]
 )(implicit
   C: Stream.Compiler[F,F],
   M: MonadError[F,Throwable]
-) extends ODataClient[F] {
-  type PreferOptions = BasicPreferOptions
-  type RequestOptions = BasicRequestOptions[PreferOptions]
+) extends ODataClient[F, PreferOptions, RequestOptions] {
 
   implicit protected val compiler = C
   val F = M
@@ -63,8 +64,8 @@ object BasicODataClient {
     reportError: F[Throwable] => F[Throwable]
   )(
     implicit C: Stream.Compiler[F,F]
-  ): ODataClient[F] =
-    new BasicODataClient[F](httpClient, baseUrl, mkUnexpectedStatus, reportError)
+  ): ODataClient[F, BasicPreferOptions, BasicRequestOptions[BasicPreferOptions]] =
+    new BasicODataClient[F, BasicPreferOptions, BasicRequestOptions[BasicPreferOptions]](httpClient, baseUrl, mkUnexpectedStatus, reportError)
 
   /** Create an OData client layer unexpected status error. Use this for
    * `mkUnexpectedStatus` in `apply`. Creates instance of class
@@ -97,8 +98,8 @@ object BasicODataClient {
     baseUrl: String
   )(
     implicit C: Stream.Compiler[F,F]
-  ): ODataClient[F] =
-    new BasicODataClient[F](
+  ): ODataClient[F, BasicPreferOptions, BasicRequestOptions[BasicPreferOptions]] =
+    new BasicODataClient[F, BasicPreferOptions, BasicRequestOptions[BasicPreferOptions]](
       http = httpClient,
       base = baseUrl,
       mkStatusError = mkUnexpectedStatus[F,js.Object],

@@ -15,8 +15,12 @@ import fs2._
 import http._
 
 /** OData operations for updating infomation. */
-trait UpdateOps[F[_]] {
-  self: ClientInfrastructure[F] =>
+trait UpdateOps[
+  F[_],
+  PreferOptions <: BasicPreferOptions,
+  RequestOptions <: BasicRequestOptions[PreferOptions]
+] {
+  self: ClientInfrastructure[F, PreferOptions, RequestOptions] =>
 
     /**
     * Update a single property, return the id updated.

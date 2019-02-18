@@ -66,9 +66,9 @@ trait ClientIdRenderer {
 }
 
 /** Collection of basic traits used in *Ops classes. */
-trait ClientInfrastructure[F[_]]
+trait ClientInfrastructure[F[_], PO <: BasicPreferOptions, RO <: BasicRequestOptions[PO]]
     extends ClientError[F]
-    with ClientRequests[F]
+    with ClientRequests[F, PO, RO]
     with HttpResources[F]
     with ClientFConstraints[F]
     with ClientIdRenderer
@@ -82,7 +82,10 @@ trait ClientInfrastructure[F[_]]
   * backend. Since OData datasources can have a number of application specific
   * options, this trait should be considered a building block built on many
   * traits that reflect the optionality. Hence, it is a pain to assemble all the
-  * pieces together.
+  * pieces together. The type parameters represent the different aspects of a
+  * OData client that tyically need to be overriden e.g. a specific OData server
+  * can implement different Prefer headers that you may wish to provide typesafe
+  * support for.
   *
   * All of the methods either return an F or a fs2.Stream. The F or Stream must
   * be run in order to execute the operation. The client only captures the most
@@ -93,15 +96,15 @@ trait ClientInfrastructure[F[_]]
   *
  * @tparam F Effect for requests.
   */
-trait ODataClient[F[_]]
-    extends ClientInfrastructure[F]
-    with CollectionOps[F]
-    with UpdateOps[F]
-    with AssociateOps[F]
-    with GetOneOps[F]
-    with ActionOps[F]
-    with CreateOps[F]
-    with DeleteOps[F]
-    with BatchOps[F] {
+trait ODataClient[F[_], PO <: BasicPreferOptions, RO <: BasicRequestOptions[PO]]
+    extends ClientInfrastructure[F, PO, RO]
+    with CollectionOps[F, PO, RO]
+    with UpdateOps[F, PO, RO]
+    with AssociateOps[F, PO, RO]
+    with GetOneOps[F, PO, RO]
+    with ActionOps[F, PO, RO]
+    with CreateOps[F, PO, RO]
+    with DeleteOps[F, PO, RO]
+    with BatchOps[F, PO, RO] {
   self =>
 }

@@ -18,8 +18,12 @@ import ttg.scalajs.common.fs2helpers._
 /**
   * Misc stream methods.
   */
-trait ClientStreamOps[F[_]] {
-  self: ClientInfrastructure[F] =>
+trait ClientStreamOps[
+  F[_],
+  PreferOptions <: BasicPreferOptions,
+  RequestOptions <: BasicRequestOptions[PreferOptions]
+] {
+  self: ClientInfrastructure[F, PreferOptions, RequestOptions] =>
 
   // move from call site to declaration site
   implicit protected val compiler: Stream.Compiler[F,F]
@@ -59,8 +63,12 @@ trait ClientStreamOps[F[_]] {
 }
 
 /** Operations for request entity collections. */
-trait CollectionOps[F[_]] extends ClientStreamOps[F] {
-  self: ClientInfrastructure[F] =>
+trait CollectionOps[
+  F[_],
+  PreferOptions <: BasicPreferOptions,
+  RequestOptions <: BasicRequestOptions[PreferOptions]
+] extends ClientStreamOps[F, PreferOptions, RequestOptions] {
+  self: ClientInfrastructure[F, PreferOptions, RequestOptions] =>
 
   /**
     * Get a list of values. Follows @data.nextLink but accumulates all the

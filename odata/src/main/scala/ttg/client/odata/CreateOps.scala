@@ -10,8 +10,11 @@ import cats.Monad
 import http._
 import odata.instances.odatadecoders._
 
-trait CreateOps[F[_]] {
-  self: ClientInfrastructure[F] =>
+trait CreateOps[F[_],
+  PreferOptions <: BasicPreferOptions,
+  RequestOptions <: BasicRequestOptions[PreferOptions]
+] {
+  self: ClientInfrastructure[F, PreferOptions, RequestOptions] =>
 
   private implicit val _F: Monad[F] = F
 

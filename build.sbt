@@ -65,7 +65,7 @@ lazy val root = project.in(file("."))
     odata,
     `scalajs-common`,
     docs,
-    adal,
+    msad,
     `node-fetch`,
     `browser-fetch`)
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
@@ -101,10 +101,10 @@ lazy val `browser-fetch` = project
   .dependsOn(http,`scalajs-common`)
   //.settings(requireJsDomEnv in Test := true)
 
-lazy val adal = project
+lazy val msad = project
   .settings(dynamicsSettings)
-  .settings(name := "http-client-adal")
-  .settings(description := "Microsoft AD authentication via adal")
+  .settings(name := "http-client-msad")
+  .settings(description := "Microsoft AD authentication via msal.js")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
   .dependsOn(http, `scalajs-common`)
 

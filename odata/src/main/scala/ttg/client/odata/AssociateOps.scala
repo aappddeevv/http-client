@@ -16,8 +16,12 @@ import http._
 import http.instances.entityencoder._
 
 /** OData operations for associating/dissociating infomation. */
-trait AssociateOps[F[_]] {
-  self: ClientInfrastructure[F] =>
+trait AssociateOps[
+  F[_],
+  PreferOptions <: BasicPreferOptions,
+  RequestOptions <: BasicRequestOptions[PreferOptions]
+] {
+  self: ClientInfrastructure[F, PreferOptions, RequestOptions] =>
 
   private implicit val _F: Monad[F] = F
 

@@ -14,8 +14,12 @@ import fs2._
 
 import http._
 
-trait ActionOps[F[_]] {
-  self: ClientInfrastructure[F] =>
+trait ActionOps[
+  F[_],
+  PreferOptions <: BasicPreferOptions,
+  RequestOptions <: BasicRequestOptions[PreferOptions]
+] {
+  self: ClientInfrastructure[F, PreferOptions, RequestOptions] =>
 
   /**
     * Execute an action. Can be bound or unbound depending on entityCollectionAndId. Action
