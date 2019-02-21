@@ -12,13 +12,14 @@ import js.|
 
 import Utils._
 
-final case class JsObjectOps(o: js.Object) {
-  @inline def asDict[A]                       = o.asInstanceOf[js.Dictionary[A]]
-  @inline def asAnyDict                       = o.asInstanceOf[js.Dictionary[js.Any]]
-  @inline def asDyn                           = o.asInstanceOf[js.Dynamic]
-  @inline def asUndefOr[A]: js.UndefOr[A]     = o.asInstanceOf[js.UndefOr[A]]
-  @inline def combine(that: js.Object)        = merge(o, that)
-  @inline def combine(that: js.Dictionary[_]) = merge(o, that.asInstanceOf[js.Object])
+final case class JsObjectOps[T <: js.Object](o: T) {
+  def asDict[A]                       = o.asInstanceOf[js.Dictionary[A]]
+  def asAnyDict                       = o.asInstanceOf[js.Dictionary[js.Any]]
+  def asDyn                           = o.asInstanceOf[js.Dynamic]
+  def asUndefOr[A]: js.UndefOr[A]     = o.asInstanceOf[js.UndefOr[A]]
+  def combine(that: T)        = merge[T](o, that)
+  def combine(that: js.Dictionary[_]) = merge[T](o, that.asInstanceOf[T])
+  def combineTo[S <: js.Object](that: S) = merge[js.Object](o, that).asInstanceOf[S]
 }
 
 final case class JsDictionaryOps(o: js.Dictionary[_]) {
@@ -30,6 +31,6 @@ final case class JsDictionaryOps(o: js.Dictionary[_]) {
 }
 
 trait JsObjectSyntax {
-  implicit def jsObjectOpsSyntax(a: js.Object)           = new JsObjectOps(a)
+  implicit def jsObjectOpsSyntax[T <: js.Object](a: T)           = new JsObjectOps(a)
   implicit def jsDictonaryOpsSyntax(a: js.Dictionary[_]) = new JsDictionaryOps(a)
 }

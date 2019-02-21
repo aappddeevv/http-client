@@ -10,61 +10,37 @@ import fs2.Stream
 import cats._
 import cats.data._
 import cats.implicits._
+import cats.effect._
 
 private[http]
-abstract class DefaultClient[F[_]: MonadError[?[_], E], E]
-extends Client[F, E] {
+abstract class DefaultClient[B1[_], C1, B2[_], C2, F[_]: MonadError[?[_], E]:FlatMap, E <: Throwable]
+    extends Client[B1,C1,B2,C2,F,E] {
 
-  def fetch[A](request: HttpRequest[F])(f: HttpResponse[F] => F[A]): F[A] =
+  val F = MonadError[F, E]
+  
+  def fetch[A](request: HttpRequest[B1, C1])(f: HttpResponse[B2, C2] => F[A]): F[A] =
     run(request).flatMap(f)
 
-  def fetch[A](request: F[HttpRequest[F]])(f: HttpResponse[F] => F[A]): F[A] =
+  def fetch[A](request: F[HttpRequest[B1,C1]])(f: HttpResponse[B2,C2] => F[A]): F[A] =
     request.flatMap(fetch(_)(f))
 
-  def expectOr[A](req: HttpRequest[F])(onError: (HttpRequest[F], HttpResponse[F]) => F[E])(
-      implicit d: EntityDecoder[F, A]): F[A] =
-    fetch(req) {
-      case Status.Successful(resp) =>
-        // same as resp.as[B] when using syntax
-        d.decode(resp).fold(throw _, identity)
-      case failedResponse =>
-        onError(req, failedResponse).flatMap(MonadError[F,E].raiseError)
-    }
+  def fetchAs[A](request: HttpRequest[B1,C1])(implicit d: EntityDecoder[B2,C2,F,A]): DecodeResult[F,A] =
+    DecodeResult(run(request).flatMap(d.decode(_).value))
 
-  def expectOr[A](req: F[HttpRequest[F]])(onError: (HttpRequest[F], HttpResponse[F]) => F[E])(
-    implicit d: EntityDecoder[F, A]): F[A] =
-    Monad[F].flatMap(req)(expectOr(_)(onError))
-  
-  def fetchAs[A](req: HttpRequest[F])(implicit d: EntityDecoder[F, A]): F[A] =
-    fetch(req) { resp =>
-      d.decode(resp).fold(throw _, identity)
-    }
+  def fetchAs[A](request: F[HttpRequest[B1,C1]])(implicit d: EntityDecoder[B2,C2,F,A]): DecodeResult[F,A] =
+    DecodeResult(request.flatMap(fetchAs[A](_)(d).value))
 
-  def fetchAs[A](req: F[HttpRequest[F]])(implicit d: EntityDecoder[F, A]): F[A] =
-    req.flatMap(fetchAs(_)(d))
+  def status(request: HttpRequest[B1,C1]): F[Status] =
+    fetch(request)(resp => Monad[F].pure(resp.status))
 
-  def status(req: HttpRequest[F]): F[Status] =
-    fetch(req)(resp => Monad[F].pure(resp.status))
+  def status(request: F[HttpRequest[B1,C1]]): F[Status] = request.flatMap(status)
 
-  def status(req: F[HttpRequest[F]]): F[Status] = req.flatMap(status)
-
-  def stream[A](req: HttpRequest[F]): Stream[F, HttpResponse[F]] =
-    Stream.eval(run(req))
-
-  @deprecated("Use stream", "0.1.0")
-  def streaming[A](req: HttpRequest[F])(f: HttpResponse[F] => Stream[F, A]): Stream[F, A] =
-    stream(req).flatMap(f)
-
-  @deprecated("Use stream", "0.1.0")
-  def streaming[A](req: F[HttpRequest[F]])(f: HttpResponse[F] => Stream[F, A]): Stream[F, A] =
-    Stream.eval(req).flatMap(stream).flatMap(f)
-
-  def successful(req: HttpRequest[F]): F[Boolean] =
+  def successful(req: HttpRequest[B1,C1]): F[Boolean] =
     status(req).map(_.isSuccess)
 
-  def successful(req: F[HttpRequest[F]]): F[Boolean] =
+  def successful(req: F[HttpRequest[B1,C1]]): F[Boolean] =
     req.flatMap(successful)
 
-  def toKleisli[A](f: HttpResponse[F] => F[A]): Kleisli[F, HttpRequest[F], A] =
-    Kleisli(fetch(_)(f))
+  // def toKleisli[A](f: HttpResponse[F] => F[A]): Kleisli[F, HttpRequest[F], A] =
+  //   Kleisli(fetch(_)(f))
 }

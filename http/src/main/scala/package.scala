@@ -32,7 +32,8 @@ package object http {
    *      Client(client.run, myErrorHandler)
    * }}}
    */
-  type Middleware[F[_],E]         = Client[F,E] => Client[F,E]
+  type Middleware[B1[_],C1,B2[_],C2,F[_],E] =
+    Client[B1,C1,B2,C2,F,E] => Client[B1,C1,B2,C2,F,E]
 
   /** Basic headers are a dict of strings. Should this be String,String? */
   type HttpHeaders = collection.immutable.Map[String, Seq[String]]
@@ -41,17 +42,24 @@ package object http {
    * When decoding a response body, either you get an A or a DecodeFailure. The
     * effect may also carry an exception.  EitherT has a bunch of combinators
     * you can use to manipulate the results. You can retrieve values using
-    * methods such as `fold` and `value`.
+    * methods such as `fold` and `value`. Since all Client implementations wrap
+    * the HttpResponse in an effect, the DecodeResult must also be wrapped in an
+    * effect and you must use `fold` to obtain a value in an effect or the
+    * effect's extract mechanism e.g. extract from EitherT using
+    * `myEitherT.value` then use IO's `redeem` and then use IO's unsafeRun*
+    * methods.
     *
-    * @see https://typelevel.org/cats/api/cats/data/EitherT.html
+   * @see https://typelevel.org/cats/api/cats/data/EitherT.html
+   * @see https://typelevel.org/cats/datatypes/eithert.html
+   * @see https://typelevel.org/cats-effect/api/cats/effect/IO.html
     */
   type DecodeResult[F[_], A] = EitherT[F, DecodeFailure, A]
 
   /** This old type spec assumes F can carry an error, which may not be true and
    * we may need to detect the request type e.g. GET as part of the criteria.
    */
-  type RetryPolicy[F[_], E] =
-    (HttpRequest[F], Either[E, HttpResponse[F]], Int) => Option[FiniteDuration]
+  // type RetryPolicy[F[_], E] =
+  //   (HttpRequest[F], Either[E, HttpResponse[F]], Int) => Option[FiniteDuration]
 
   /** Reviver used when decoding using javascript engine decoder. */
   type Reviver = js.Function2[js.Any, js.Any, js.Any]
@@ -69,18 +77,4 @@ package object http {
 
     val all = Seq(GET, POST, DELETE, POST, PUT, QUERY, HEAD, OPTIONS)
   }
-
-  /**
-   * Start an empty GET request with some common headers and an empty body.
-   * Use this to start your requests using a builder-like syntax.
-   */
-  def empty = HttpRequestNoBody(method = Method.GET, path = "")
-
-  /** A starting request that has gzip and deflate in header. */
-  def request = HttpRequestNoBody(
-    method = Method.GET,
-    path = "",
-    headers = HttpHeaders(HttpHeaders.AcceptEncoding -> "gzip, inflate")
-  )
-
 }

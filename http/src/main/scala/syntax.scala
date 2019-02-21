@@ -15,8 +15,9 @@ import cats.effect._
 final case class DecodeResultOps[F[_], T](val dr: DecodeResult[F, T])(
   implicit F: MonadError[F, Throwable]) {
 
-  /** Flatten `EitherT[F,DecodeFailure,T]`. Push any DecodeFailure as the error
-   * into a `F[T]` discarding any existing error that F may hold.
+  /** Flatten `EitherT[F,DecodeFailure,T]` by pushing a DecodeFailure into the
+   * error channel of 'F' discarding any existing error that F may currently
+   * hold.
    */
   def toF: F[T] = F.flatten(dr.fold(F.raiseError, F.pure))
 }
@@ -26,31 +27,34 @@ trait DecodeResultSyntax {
     DecodeResultOps(dr)
 }
 
-final case class MultipartOps[F[_]](r: HttpRequest[F]) {
-  def toPart = SinglePart(r)
-}
+// final case class MultipartOps[F[_]](r: HttpRequest[F]) {
+//   def toPart = SinglePart(r)
+// }
 
 trait MultipartSyntax {
-  implicit def multiartOpsSyntax[F[_], T](r: HttpRequest[F]) = MultipartOps(r)
+//   implicit def multiartOpsSyntax[F[_], T](r: HttpRequest[F]) = MultipartOps(r)
 }
 
-final case class RequestNoBodyOps(r: HttpRequestNoBody) extends AnyVal {
-  // empty for now!
+// final case class RequestNoBodyOps(r: HttpRequestNoBody) extends AnyVal {
+//   // empty for now!
+// }
+
+final case class RequestOps[B1[_],A](r: HttpRequest[B1,A]) extends AnyVal {
+
+  //def send[C1, B2[_],C2,F[_],E]()(implicit client: Client[B1,C1,B2,C2,F,E]) =
+  //  client.status(r)
+
 }
 
-final case class RequestOps[B[_]](r: HttpRequest[B]) extends AnyVal {
-  // empty for now!
-}
-
-final case class DecodableRequestOps[B[_], T](dr: DecodableRequest[B,T]) {
-  //def send[F[_]](implicit client: Client[F[_], E]): F[T] = client.fetchAs(dr.decoder)
-}
+// final case class DecodableRequestOps[B[_], T](dr: DecodableRequest[B,T]) {
+//   //def send[F[_]](implicit client: Client[F[_], E]): F[T] = client.fetchAs(dr.decoder)
+// }
 
 trait RequestSyntax {
-  implicit def requestNoBodyOps(r: HttpRequestNoBody) = RequestNoBodyOps(r)
-  implicit def requestOps[B[_]](r: HttpRequest[B]) = RequestOps[B](r)
-  implicit def decodableRequestOps[B[_], T](r: DecodableRequest[B, T]) =
-    DecodableRequestOps[B, T](r)
+//  implicit def requestNoBodyOps(r: HttpRequestNoBody) = RequestNoBodyOps(r)
+  implicit def requestOps[B1[_], A](r: HttpRequest[B1,A]) = RequestOps[B1,A](r)
+//  implicit def decodableRequestOps[B[_], T](r: DecodableRequest[B, T]) =
+//    DecodableRequestOps[B, T](r)
 }
 
 trait AllSyntax
@@ -68,15 +72,15 @@ object syntax {
 }
 
 trait AllInstances
-    extends EntityEncoderInstances
-    with EntityDecoderInstances
-    with MethodInstances
+    //extends EntityEncoderInstances
+    //with EntityDecoderInstances
+    extends MethodInstances
     with ErrorChannelInstances
 
 object instances {
   object all           extends AllInstances
-  object entityencoder extends EntityEncoderInstances
-  object entitydecoder extends EntityDecoderInstances
+  //object entityencoder extends EntityEncoderInstances
+  //object entitydecoder extends EntityDecoderInstances
   object method        extends MethodInstances
   object errorchannel extends ErrorChannelInstances
 }

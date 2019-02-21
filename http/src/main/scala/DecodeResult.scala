@@ -7,13 +7,11 @@ package client
 package http
 
 import scala.scalajs.js
-import scala.concurrent.ExecutionContext
+//import scala.concurrent.ExecutionContext
 import cats._
 import cats.data._
 import cats.effect._
 import cats.implicits._
-
-//import dynamics.common._
 
 /**
   * Helper objects to make creating DecodeResults easier.

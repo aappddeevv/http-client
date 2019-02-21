@@ -19,33 +19,39 @@ import scala.annotation.implicitNotFound
 import scala.collection.mutable
 
 /**
-  * Superclass of requests and responses. Holds headers and a body
-  * at a minimum.
-  */
-trait Message[F[_]] extends MessageOps[F] {
+ * Superclass of http responses.
+ */
+trait Message[B[_], C] extends MessageOps[B, C] {
   def headers: HttpHeaders
-  def body: Entity[F]
+  def body: B[C]
+  def status: Status
+  def tags: Map[String, scala.Any]
 
-  override def attemptAs[T](implicit F: FlatMap[F], decoder: EntityDecoder[F, T]): DecodeResult[F, T] =
+  /** Attempt as is here because you may need to decode a request body. */
+  override def attemptAs[F[_], T](
+    implicit decoder: EntityDecoder[B, C, F, T]): DecodeResult[F, T] =
     decoder.decode(this)
 }
 
 /**
   * Basic HTTP client code based mostly on http4s.
   */
-trait MessageOps[F[_]] extends Any {
+trait MessageOps[B[_], C] {
 
   /** Decode the body given an implicit decoder to a DecodeResult. */
-  def attemptAs[T](implicit F: FlatMap[F], decoder: EntityDecoder[F, T]): DecodeResult[F, T]
+  def attemptAs[F[_], T](implicit decoder: EntityDecoder[B, C, F, T]): DecodeResult[F, T]
 
   /**
-    * Decode the body to specific type inside an effect. A decode exception is
-    * translated into a failed effect. If the DecodeResult was already failed,
-    * that failure is kept. This is just one way to handle the DecodeResult.
+    * Extract the target value T from DecodeResult wrapped in the final F
+    * effect. A decode exception is *thrown* if the decoder fails. This method
+    * removes DecodeResult leaving only T or throws an error. You can skip using
+    * `as` and use DecodeResult ( = EitherT) methods to extract the value out
+    * more carefully. Don't use this unless you want an exception thrown for
+    * error handling.
     */
-  final def as[T](implicit F: FlatMap[F], decoder: EntityDecoder[F, T]): F[T] =
+  final def as[F[_]: Functor, T](implicit decoder: EntityDecoder[B, C, F, T]): F[T] =
     //attemptAs(decoder).fold(F.raiseError(_), _.pure[F]).flatten
-    attemptAs.fold(throw _, identity)
+    attemptAs.fold(throw _, identity)(Functor[F])
 }
 
 trait MethodInstances {
@@ -61,68 +67,45 @@ sealed trait HttpRequestInfo {
   def tags: Map[String, scala.Any]
 }
 
-/** Request with on body, typical of a GET. */
-case class HttpRequestNoBody(
-  val method: Method,
-  val path: String,
-  val headers: HttpHeaders = HttpHeaders.empty,
-  val tags: Map[String, scala.Any] = Map()
+/** Request type with an effectful body. */
+case class HttpRequest[B[_], A](
+  method: Method,
+  path: String,
+  headers: HttpHeaders = HttpHeaders.empty,
+  body: B[A],
+  tags: Map[String, scala.Any] = Map()
 ) extends HttpRequestInfo { self =>
-
-  def body[B[_]](body: Entity[B]) = HttpRequest[B](
-    method = self.method,
-    path = self.path,
-    headers = self.headers,
-    tags = self.tags,
-    body
-  )
 }
 
-/** HTTP request with a body that is specified in a body effect, potentially
- * different than the effect used asynchronously in a request, response cycle.
- * It's alot easier if your asynchronous effect type matches the body's effect
- * type.
- */
-case class HttpRequest[B[_]](
-  val method: Method,
-  val path: String,
-  val headers: HttpHeaders = HttpHeaders.empty,
-  val tags: Map[String, scala.Any] = Map(),
-  val body: Entity[B]
-)
-    extends Message[B] with HttpRequestInfo { self =>
-
-  def decodeWith[T](decoder: EntityDecoder[B, T]) =
-    DecodableRequest[B, T](self, decoder)
-
+case class HttpRunnableRequest[B1[_], A, C1, B2[_], C2, F[_], T](
+  method: Method,
+  path: String,
+  headers: HttpHeaders = HttpHeaders.empty,
+  body: B1[A],  
+  tags: Map[String, scala.Any] = Map(),
+  encoder: EntityEncoder[B1, A, C1],
+  decoder: EntityDecoder[B2, C2, F, T]
+) extends HttpRequestInfo { self =>
 }
+
 
 object HttpRequest {
-  implicit def show[F[_]]: Show[HttpRequest[F]] = Show.fromToString
-
-  /** Convert a request to a response via "copy" with a specific status. */
-  def toResponse[F[_]](request: HttpRequest[F], status: Status = Status.OK): HttpResponse[F] =
-    HttpResponse(
-      status = status,
-      headers = request.headers,
-      body = request.body,
-      tags = request.tags
-    )
+  implicit def show[B1[_],C1]: Show[HttpRequest[B1,C1]] =
+    Show.fromToString
 }
 
-/** A request that has a decoder to decode the response. */
-case class DecodableRequest[B[_], T](
-  request: HttpRequest[B],
-  decoder: EntityDecoder[B, T]
-)
-
-/** HTTP response. */
-case class HttpResponse[F[_]](
+/** Raw HTTP response from a Client, backend specific body C is wrapped in
+ * effect B. B is also Client specific and the decoders need to perform natural
+ * transformation to the desired DecodeResult's effect type.
+ */
+case class HttpResponse[B[_], C](
   status: Status,
   headers: HttpHeaders,
-  body: Entity[F],
-  tags: Map[String, scala.Any] = Map()) extends Message[F]
+  body: B[C],
+  tags: Map[String, scala.Any] = Map()
+) extends Message[B, C]
 
 object HttpResponse {
-  implicit def show[F[_]]: Show[HttpResponse[F]] = Show.fromToString  
+  implicit def show[B2[_], C2]: Show[HttpResponse[B2,C2]] =
+    Show.fromToString
 }

@@ -19,27 +19,32 @@ import scala.annotation.implicitNotFound
 import scala.collection.mutable
 
 /**
- * Keep it simple, entity body is ultimately a string...skip streams for the
- * body itself in this implementation. Length can be calculated directly from
- * the string.
+ * The body of a message. The body is always wrapped in an effect even if its an
+ * Entity for an outbound message from the client. While an Entity is backend
+ * dependent we know that any HTTP backend needs to support content types like
+ * String.
+ * 
+ * @tparam F The effect the content is wrapped in.
+ * @tparam C The content type, application dependent.
  */
-final case class Entity[F[_]](
-  /** Entity content. */
-  content: F[String],
-  /** Whether you can run the effect multiple times on the content. */
-  isIdempotent: Boolean = true
-)
+//final case class Entity[F[_]](
+trait Entity[F[_], A]
+//{
+//  //content: EntityContent[F]
+//  content: F[C]
+//}
 
 object Entity {
 
-  implicit def entityMonoid[F[_]](implicit A: Applicative[F]): Monoid[Entity[F]] =
-    new Monoid[Entity[F]] {
-      def combine(l: Entity[F], r: Entity[F]): Entity[F] =
-        Entity((l.content,r.content).mapN(_ + _))
-      val empty: Entity[F] = Entity.empty[F]
-    }
+  // implicit def entityMonoid[F[_]](implicit A: Applicative[F]): Monoid[Entity[F]] =
+  //   new Monoid[Entity[F]] {
+  //     def combine(l: Entity[F], r: Entity[F]): Entity[F] =
+  //       Entity((l.content, r.content).mapN(_ + _))
+  //     val empty: Entity[F] = Entity.empty
+  //   }
 
-  // Making this a val causes crash!
-  def empty[F[_]](implicit F: Applicative[F]): Entity[F] =
-    Entity(F.pure(""))
+  // // Making this a val causes crash!
+  // // def empty[F[_]](implicit F: Applicative[F]): Entity[F] =
+  // //   Entity(F.pure(""))
+  // val empty: Entity[Nothing] = Entity[Nothing](EmptyBody)
 }

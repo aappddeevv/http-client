@@ -29,11 +29,11 @@ object Boundary extends RenderConstants {
 }
 
 /**
-  * One part of a multipart request. There are only two subtypes, one for a
-  * request directly in the multipart message and the other for a
-  * changeset. Deletes, updates and inserts must be in a changeset.
-  */
-sealed trait Part[F[_]] {
+ * One part of a multipart request. There are only two subtypes, one for a
+ * request directly in the multipart message and the other for a
+ * changeset. Deletes, updates and inserts must be in a changeset.
+ */
+sealed trait Part[B1[_]] {
   def xtra: HttpHeaders
 }
 
@@ -46,7 +46,10 @@ object Part {
   * @paarm request HttpRequest
   * @param xtra Extra headers after the boundary but not in the actual request.
   */
-final case class SinglePart[F[_]](request: HttpRequest[F], xtra: HttpHeaders = HttpHeaders.empty) extends Part[F]
+final case class SinglePart[B1[_]](
+  request: HttpRequest[B1,String],
+  xtra: HttpHeaders = HttpHeaders.empty
+) extends Part[B1]
 
 /**
   * Changeset "part". Headers are written for Content-Type and
@@ -57,19 +60,20 @@ final case class SinglePart[F[_]](request: HttpRequest[F], xtra: HttpHeaders = H
   * @param bounday The changeset boundary.
   * @param xtra Extra headers after the changeset boundary but not in the actual requests.
   */
-final case class ChangeSet[F[_]](parts: Seq[SinglePart[F]],
+final case class ChangeSet[B1[_]](parts: Seq[SinglePart[B1]],
                                  boundary: Boundary = Boundary.mkBoundary("changeset_"),
                                  xtra: HttpHeaders = HttpHeaders.empty)
-    extends Part[F]
+    extends Part[B1]
 
-final case class EmptyPart[F[_]]() extends Part[F] {
+final case class EmptyPart[B1[_]]() extends Part[B1] {
   val xtra: HttpHeaders = HttpHeaders.empty
 }
 
 object ChangeSet {
 
   /** ChangeSet from requests. */
-  def fromRequests[F[_]](requests: Seq[HttpRequest[F]]): ChangeSet[F] = ChangeSet(requests.map(SinglePart(_)))
+  def fromRequests[B1[_]](requests: Seq[HttpRequest[B1,String]]): ChangeSet[B1] =
+    ChangeSet(requests.map(SinglePart(_)))
 }
 
 /**
@@ -78,7 +82,7 @@ object ChangeSet {
   * @param parts Sequence of Parts.
   * @param boundary Batch boundary.
   */
-final case class Multipart[F[_]](parts: Seq[Part[F]], boundary: Boundary = Boundary.mkBoundary())
+final case class Multipart[B1[_]](parts: Seq[Part[B1]], boundary: Boundary = Boundary.mkBoundary())
 
 trait RenderConstants {
   val MediaType = "multipart/mixed"
@@ -89,17 +93,18 @@ object Multipart extends RenderConstants {
   import Boundary.renderBoundary
 
   /** Requests are bundled into a changeset. */
-  def fromRequests[F[_]](requests: Seq[HttpRequest[F]]): Multipart[F] =
-    Multipart(Seq(ChangeSet.fromRequests[F](requests)))
+  def fromRequests[B1[_]](requests: Seq[HttpRequest[B1,String]]): Multipart[B1] =
+    Multipart(Seq(ChangeSet.fromRequests[B1](requests)))
 
   /**
     * Render a batch boundary for each part, render each part, render the closing batch boundary.
     */
-  def render[F[_]: Traverse: Monad](m: Multipart[F]): F[String] = {
+  def render[B1[_]: Traverse: Monad](m: Multipart[B1]): B1[String] = {
+    val B1 = Monad[B1]
     val partsAsTasks = m.parts.map { p =>
-      Monad[F].map(renderPart(p))(rest => renderBoundary(m.boundary, false) + rest)
+      B1.map(renderPart(p))(rest => renderBoundary(m.boundary, false) + rest)
     }
-    Monad[F].map(partsAsTasks.toList.sequence)(all => all.mkString("") + renderBoundary(m.boundary, true))
+    B1.map(partsAsTasks.toList.sequence)(all => all.mkString("") + renderBoundary(m.boundary, true))
   }
 
   val StandardPartHeaders = HttpHeaders("Content-Transfer-Encoding" -> "binary", "Content-Type" -> "application/http")
@@ -109,7 +114,8 @@ object Multipart extends RenderConstants {
     * TODO: There may be an extra space between a changeset boundary and the start of
     * a changeset item's boundary header.
     */
-  def renderPart[F[_]: Traverse: Monad](p: Part[F]): F[String] = {
+  def renderPart[B1[_]: Traverse: Monad](p: Part[B1]): B1[String] = {
+    val B1 = Monad[B1]
     p match {
       case SinglePart(req, xtra) =>
         val partHeaders = StandardPartHeaders ++ xtra
@@ -120,7 +126,7 @@ object Multipart extends RenderConstants {
           throw new IllegalArgumentException(
             "OData multitpart requires each part request to have a Host header or a full path URL.")
 
-        Monad[F].map(req.body.content){ contentstr =>
+        B1.map(req.body){ contentstr =>
           HttpHeaders.render(partHeaders) + CRLF +
           method + CRLF +
           HttpHeaders.render(req.headers) + CRLF +
@@ -150,12 +156,12 @@ object Multipart extends RenderConstants {
           val modified =
             p.copy(request = p.request.copy(headers =
               p.request.headers ++ newCT), xtra = p.xtra ++ withContentId)
-          Monad[F].map(renderPart(modified))(rest => renderBoundary(b, false) + rest)
+          B1.map(renderPart(modified))(rest => renderBoundary(b, false) + rest)
         }
-        Monad[F].map(partsAsTasks.toList.sequence)(
+        B1.map(partsAsTasks.toList.sequence)(
           all => HttpHeaders.render(partHeaders) + CRLF + all.mkString("") + renderBoundary(b, true))
 
-      case EmptyPart() => Monad[F].pure("")
+      case EmptyPart() => Monad[B1].pure("")
     }
   }
 }

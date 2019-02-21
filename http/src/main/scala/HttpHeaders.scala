@@ -13,6 +13,7 @@ trait HeaderKeys {
   val AcceptLanguage = "Accept-Language"  
   val Authorization = "Authorization"
   val CacheControl = "Cache-Control"
+  val ContentEncoding = "Content-Encoding"
   val ContentLength = "Content-Length"
   val ContentType = "ContentType"
   val ContentID = "Content-ID"
@@ -36,6 +37,17 @@ object HttpHeaders extends HeaderKeys {
 
   def contentId(id: String) = apply(ContentID -> id)
   def contentType(t: String) = apply(ContentType -> t)
+
+  /** Charset UTF-8 for "Content-Type" eg. `Content-Type: text/plain;
+   * charset=utf-8`.
+   */
+  val charset_utf8 = "charset=utf-8"
+
+  /** Standard headers for *sending* JSON to a server. Assumes utf-8. */
+  val JsonHeaders = HttpHeaders(
+    ContentType -> "application/json; charset=utf-8",
+    Accept-> "application/json"
+  )
 
   /** Render to a String. Newline is added on end if any content is rendered. */
   def render(h: HttpHeaders): String = {

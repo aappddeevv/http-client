@@ -17,10 +17,6 @@ import cats.implicits._
 
 object Utils {
 
-  /** Add minutes to a js.Date. */
-  def addMinutes(d: js.Date, n: Int): js.Date =
-    new js.Date(d.getTime() + (n * 60 * 1000))
-
   /** Factory to create a matcher.
     * @return A => Boolean
     */

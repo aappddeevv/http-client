@@ -9,7 +9,8 @@ import scala.concurrent._
 import scala.scalajs.js
 import scala.scalajs.runtime.wrapJavaScriptException
 import fs2._
-import cats.~>
+import cats._
+import cats.implicits._
 import cats.effect._
 
 /**
@@ -21,22 +22,7 @@ package object common {
 
   type JsAnyDict = js.Dictionary[js.Any]
 
-  // /** Convert js.Promise to IO. */
-  // val jsPromiseToIO: js.Promise ~> IO =
-  //   new (js.Promise ~> IO) {
-  //     override def apply[A](p: js.Promise[A]) =
-  //       IO.async { cb =>
-  //         p.`then`[Unit](
-  //           { (v: A) => cb(Right(v))},
-  //           js.defined { (e: scala.Any) =>
-  //             cb(Left(wrapJavaScriptException(e)))
-  //           }
-  //         )
-  //         () // return unit
-  //       }
-  //   }
-
-  /** Convert js.Promise to F */
+  /** Natural tranformation js.Promise to F using a cats Async[F] */
   def jsPromiseToF[F[_]](implicit F: Async[F]): js.Promise ~> F =
     new (js.Promise ~> F) {
       override def apply[A](p: js.Promise[A]) =
@@ -51,13 +37,24 @@ package object common {
         }
     }
 
+  /** Convert an IO to IO but typed as a natural transformation. */
+  val ioToIO: IO ~> IO = new (IO ~> IO) {
+    override def apply[A](ioa: IO[A]) = ioa
+  }
+
+  /** Natural transformation identity monad to IO. */
+  val idToIO: Id ~> IO = new (Id ~> IO) {
+    override def apply[A](ida: Id[A]): IO[A] = IO.pure(ida)
+  }
+
+  /** js.JSON.parse reviver argument. */
   type Reviver = js.Function2[js.Any, js.Any, js.Any]
 
   /** js regex for a date from an OData server. */
   val dateRegex =
     new js.RegExp("""^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$""")
 
-  /** JSON reviver that matches nothing. */
+  /** JSON reviver that matches nothing, use as a zero. */
   val undefinedReviver = js.undefined.asInstanceOf[Reviver]
 
   /** JSON Date reviver based on ISO string format `dateRegex`. (js) */
