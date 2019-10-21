@@ -1,5 +1,7 @@
 import scala.sys.process._
 
+Global / onChangedBuildSource := ReloadOnSourceChanges
+
 resolvers in ThisBuild += Resolver.sonatypeRepo("releases")
 resolvers in ThisBuild += Resolver.sonatypeRepo("snapshots")
 resolvers in ThisBuild += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
@@ -24,7 +26,7 @@ lazy val licenseSettings = Seq(
 lazy val buildSettings = Seq(
   organization := "ttg",
   licenses ++= Seq(("MIT", url("http://opensource.org/licenses/MIT"))),
-  scalaVersion := "2.12.7",
+  scalaVersion := "2.13.1",
   scalaModuleInfo ~= (_.map(_.withOverrideScalaVersion(true))),
   parallelExecution in Test := false
 ) ++ licenseSettings
@@ -48,10 +50,14 @@ lazy val commonSettings = Seq(
       Seq("-P:scalajs:sjsDefinedByDefault")
     else Nil),
   libraryDependencies ++=
-    (Dependencies.commonDependencies.value ++
-      Dependencies.myJSDependencies.value),
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9"),
-  addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
+    (Dependencies.commonDependencies.value),
+  addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full),
+  //addCompilerPlugin("org.scalamacros" % "paradise" % "3.1.1" cross CrossVersion.full),
+)
+
+lazy val jsServerSettings = Seq(
+  libraryDependencies ++=
+    Dependencies.jsServerDependencies.value
 )
 
 lazy val dynamicsSettings = buildSettings ++ commonSettings
@@ -64,6 +70,7 @@ lazy val root = project.in(file("."))
     http,
     odata,
     `scalajs-common`,
+    `scalajs-common-server`,    
     docs,
     msad,
     `node-fetch`,
@@ -75,6 +82,15 @@ lazy val `scalajs-common` = project
   .settings(description := "Common components")
   .settings(name := "scalajs-common")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
+
+lazy val `scalajs-common-server` = project
+  .settings(dynamicsSettings)
+  .settings(jsServerSettings)
+  .dependsOn(`scalajs-common`)
+  .settings(description := "Common components server side")
+  .settings(name := "scalajs-common-server")
+  .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
+
 
 lazy val http = project
   .settings(dynamicsSettings)
@@ -88,12 +104,12 @@ lazy val `node-fetch` = project
   .settings(name := "http-client-node-fetch")
   .settings(description := "odata client based on node fetch")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
-  .dependsOn(http,`scalajs-common`)
+  .dependsOn(http,`scalajs-common-server`)
 
 lazy val `browser-fetch` = project
   .settings(dynamicsSettings)
   .settings(libraryDependencies ++= Seq(
-	"org.scala-js" %%% "scalajs-dom" % "latest.version"
+	"org.scala-js" %%% "scalajs-dom" % "0.9.7"
   ))
   .settings(name := "http-client-browser-fetch")
   .settings(description := "client based on a browser's fetch API")
@@ -112,7 +128,7 @@ lazy val odata = project
   .settings(dynamicsSettings)
   .settings(name := "http-client-odata")
   .settings(description := "OData v4 client")
-  .dependsOn(http, `scalajs-common`)
+  .dependsOn(http, `scalajs-common-server`)
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
 
 lazy val docs = project
@@ -121,7 +137,7 @@ lazy val docs = project
   .settings(commonSettings)
   .settings(libraryDependencies ++= Dependencies.appDependencies.value)
   .enablePlugins(MicrositesPlugin, ScalaUnidocPlugin, ScalaJSPlugin)
-  .aggregate(odata, http, `scalajs-common`, `node-fetch`, `browser-fetch`)
+  .aggregate(odata, http, `scalajs-common-server`, `node-fetch`, `browser-fetch`)
   .settings(
     micrositeName := "odata-client",
     micrositeDescription := "A Microsoft Dynamics CLI swiss-army knife and browser/server library.",

@@ -24,4 +24,13 @@ package object browserfetch {
 
   def get(path: String, headers: HttpHeaders = HttpHeaders.empty) =
     HttpRequest[Id,BodyInit](Method.GET, path, headers = headers, body="")
+
+  def post(path: String, headers: HttpHeaders = HttpHeaders.empty, body: BodyInit) =
+    HttpRequest[Id,BodyInit](Method.POST, path, headers = headers, body=body)
+
+  def put(path: String, headers: HttpHeaders = HttpHeaders.empty, body: BodyInit) =
+    HttpRequest[Id,BodyInit](Method.PUT, path, headers = headers, body=body)
+
+  def delete(path: String, headers: HttpHeaders = HttpHeaders.empty) =
+    HttpRequest[Id,BodyInit](Method.DELETE, path, headers = headers, body="")  
 }

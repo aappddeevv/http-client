@@ -35,8 +35,10 @@ package object http {
   type Middleware[B1[_],C1,B2[_],C2,F[_],E] =
     Client[B1,C1,B2,C2,F,E] => Client[B1,C1,B2,C2,F,E]
 
-  /** Basic headers are a dict of strings. Should this be String,String? */
-  type HttpHeaders = collection.immutable.Map[String, Seq[String]]
+  /** Basic headers are a dict of strings. It would be easier if it was
+   * String,String?
+   */
+  type HttpHeaders = Map[String, Seq[String]]
 
   /**
    * When decoding a response body, either you get an A or a DecodeFailure. The

@@ -28,6 +28,7 @@ import scala.collection.mutable
  * 
  * @tparam B Effect that wraps C can be strict or non-strict.
  * @tparam C The client/backend specific "body object" returned.
+ * @tparam F The output effect, wraps T.
  * @tparam T Type of the desired decoded value.
   */
 @implicitNotFound("Cannot find instance of EntityDecoder[${T}].")
@@ -39,6 +40,15 @@ abstract class EntityDecoder[B[_]: Monad, C, F[_]: Monad, T] { self =>
   /** Concrete implementations define the `decode` method. */
   def decode(response: Message[B, C]): DecodeResult[F, T]
 
+  /** If that successful, return this results. Otherwise, return that's
+   * unsuccessful result.
+   */
+  def ensureRight(that: EntityDecoder[B,C,F,T]) =
+    new EntityDecoder[B, C, F, T] {
+      override def decode(response: Message[B, C]): DecodeResult[F, T] =
+        that.flatMapR(_ => self.decode((response))).decode(response)
+    }
+
   /** Map into the value part of a DecodeResult. */
   def map[T2](f: T => T2) =
     new EntityDecoder[B, C, F, T2] {
@@ -46,7 +56,7 @@ abstract class EntityDecoder[B[_]: Monad, C, F[_]: Monad, T] { self =>
         self.decode(response).map(f)
     }
 
-  /** Flatmap into the right of the DecodeResult, i.e. the value part not the error. */
+  /** Flatmap into the value part of the DecodeResult. */
   def flatMapR[T2](f: T => DecodeResult[F, T2]) =
     new EntityDecoder[B, C, F, T2] {
       override def decode(response: Message[B, C]): DecodeResult[F, T2] =
@@ -72,8 +82,8 @@ abstract class EntityDecoder[B[_]: Monad, C, F[_]: Monad, T] { self =>
 
   /**
     * Try this decoder then other if this decoder returns a decode failure. Due
-    * to the process-once nature of the body, the orElse must really check
-    * headers or other information to allow orElse to compose correctly.
+    * to the process-once nature of the body, "this" decoder must really check
+    * headers or other information to allow orElse to read the body correctly.
     */
   def orElse[T2 >: T](other: EntityDecoder[B, C, F, T2])  = {
     new EntityDecoder[B, C, F, T2] {

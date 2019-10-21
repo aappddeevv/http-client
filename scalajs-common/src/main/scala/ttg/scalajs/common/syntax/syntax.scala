@@ -10,9 +10,7 @@ import scala.scalajs.js
 import js._
 import js.|
 import JSConverters._
-import io.scalajs.nodejs._
 import scala.concurrent._
-import io.scalajs.util.PromiseHelper.Implicits._
 import fs2._
 import cats._
 import cats.data._
@@ -24,7 +22,6 @@ import js.Dynamic.{literal => jsobj}
 // Add each individual syntax trait to this
 trait AllSyntax
     extends JsDynamicSyntax
-    with JSCallbackSyntaxNPM
     with JsUndefOrSyntax
     with JsObjectSyntax
     with JsAnySyntax
@@ -39,7 +36,6 @@ trait AllSyntax
 object syntax {
   object all           extends AllSyntax
   object jsdynamic     extends JsDynamicSyntax
-  object jscallbacknpm extends JSCallbackSyntaxNPM
   object jsundefor     extends JsUndefOrSyntax
   object jsobject      extends JsObjectSyntax
   object jsany         extends JsAnySyntax

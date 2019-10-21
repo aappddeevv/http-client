@@ -23,9 +23,9 @@ package object common {
   type JsAnyDict = js.Dictionary[js.Any]
 
   /** Natural tranformation js.Promise to F using a cats Async[F] */
-  def jsPromiseToF[F[_]](implicit F: Async[F]): js.Promise ~> F =
-    new (js.Promise ~> F) {
-      override def apply[A](p: js.Promise[A]) =
+  def jsPromiseToF[F[_]](implicit F: Async[F]): js.Thenable ~> F =
+    new (js.Thenable ~> F) {
+      override def apply[A](p: js.Thenable[A]) =
         F.async { cb =>
           p.`then`[Unit](
             { (v: A) => cb(Right(v))},

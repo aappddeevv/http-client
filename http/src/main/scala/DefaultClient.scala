@@ -25,9 +25,11 @@ abstract class DefaultClient[B1[_], C1, B2[_], C2, F[_]: MonadError[?[_], E]:Fla
     request.flatMap(fetch(_)(f))
 
   def fetchAs[A](request: HttpRequest[B1,C1])(implicit d: EntityDecoder[B2,C2,F,A]): DecodeResult[F,A] =
+    // we unwrap then immediately rewrap, not efficient
     DecodeResult(run(request).flatMap(d.decode(_).value))
 
   def fetchAs[A](request: F[HttpRequest[B1,C1]])(implicit d: EntityDecoder[B2,C2,F,A]): DecodeResult[F,A] =
+    // not efficient
     DecodeResult(request.flatMap(fetchAs[A](_)(d).value))
 
   def status(request: HttpRequest[B1,C1]): F[Status] =

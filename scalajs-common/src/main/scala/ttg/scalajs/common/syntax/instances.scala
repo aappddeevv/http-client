@@ -10,9 +10,7 @@ import scala.scalajs.js
 import js._
 import js.|
 import JSConverters._
-import io.scalajs.nodejs._
 import scala.concurrent._
-import io.scalajs.util.PromiseHelper.Implicits._
 import fs2._
 import cats._
 import cats.data._
@@ -32,34 +30,6 @@ final case class StreamOps[F[_], O](s: Stream[F, O]) {
 
 trait StreamSyntax {
   implicit def streamToStream[F[_], O](s: Stream[F, O]): StreamOps[F, O] = StreamOps(s)
-}
-
-object NPMTypes {
-  type JSCallbackNPM[A] = js.Function2[io.scalajs.nodejs.Error, A, scala.Any] => Unit
-  type JSCallback[A]    = js.Function2[js.Error, A, scala.Any] => Unit
-
-  /** This does not work as well as I thought it would... */
-  def callbackToIO[A](f: JSCallbackNPM[A])(implicit e: ExecutionContext): IO[A] = JSCallbackOpsNPM(f).toIO
-}
-
-import NPMTypes._
-
-final case class JSCallbackOpsNPM[A](val f: JSCallbackNPM[A]) {
-
-  import scala.scalajs.runtime.wrapJavaScriptException
-
-  /** Convert a standard (err, a) callback to a IO. */
-  def toIO(implicit e: ExecutionContext) =
-    IO.async { (cb: (Either[Throwable, A] => Unit)) =>
-      f((err, a) => {
-        if (err == null || js.isUndefined(err)) cb(Right(a))
-        else cb(Left(wrapJavaScriptException(err)))
-      })
-    }
-}
-
-trait JSCallbackSyntaxNPM {
-  implicit def jsCallbackOpsSyntaxNPM[A](f: JSCallbackNPM[A])(implicit s: ExecutionContext) = JSCallbackOpsNPM(f)
 }
 
 trait JsObjectInstances {
@@ -94,24 +64,25 @@ trait IOInstances {
 }
 
 trait JsPromiseInstances {
-  implicit def ttgJsPromisetoF[F[_]: Async, A](p: js.Promise[A]): F[A] =
+  implicit def ttgJsPromisetoF[F[_]: Async, A](p: js.Thenable[A]): F[A] =
     common.jsPromiseToF[F](Async[F])(p)
 }
 
 trait JsPromiseSyntax {
-  implicit class RichPromise[A](p: js.Promise[A]) {
+  implicit class RichPromise[A](p: js.Thenable[A]) {
     /** Requires an `Async[F]` which forces error to subclass of Throwable :-(. */
     def toF[F[_]](implicit F: Async[F]): F[A] = common.jsPromiseToF[F](F)(p)
     def toIO(implicit A: Async[IO]): IO[A] = toF[IO]
   }
 }
 
-case class FutureOps[A](val f: Future[A])(implicit ec: ExecutionContext) {
+case class FutureOps[A](val f: Future[A])(implicit ec: ExecutionContext, cs: ContextShift[IO]) {
   def toIO: IO[A] = IO.fromFuture(IO(f))
 }
 
 trait FutureSyntax {
-  implicit def futureToIO[A](f: Future[A])(implicit ec: ExecutionContext) = FutureOps[A](f)
+  implicit def futureToIO[A](f: Future[A])(implicit ec: ExecutionContext, cs: ContextShift[IO]) =
+    FutureOps[A](f)
 }
 
 case class IteratorOps[A](val iter: scala.Iterator[A])(implicit ec: ExecutionContext) {

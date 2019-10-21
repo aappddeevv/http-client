@@ -7,7 +7,6 @@ package client
 package http
 
 import scala.scalajs.js
-//import scala.concurrent.ExecutionContext
 import cats._
 import cats.data._
 import cats.effect._

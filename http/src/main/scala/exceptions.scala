@@ -63,3 +63,8 @@ class CommunicationsFailure(
   def message: String = s"$details"
 }
 
+/** This is not used in this library but is commonly needed when you need to
+ * limit the amount of time a request can take.
+ */
+case class TooLong(details: String = "Communications took too long")
+    extends CommunicationsFailure(details)

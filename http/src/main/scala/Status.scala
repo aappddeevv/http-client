@@ -53,7 +53,7 @@ object Status {
     def isSuccess: Boolean
 
     /** Match a [[Response]] based on [[Status]] category */
-    final def unapply[B2[_],C2](resp: HttpResponse[B2,C2]): Option[HttpResponse[B2,C2]] =
+    final def unapply[B2[_],_](resp: HttpResponse[B2,_]): Option[HttpResponse[B2,_]] =
       if (resp.status.responseClass == this) Some(resp) else None
   }
 

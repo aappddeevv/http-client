@@ -10,30 +10,44 @@ trait HeaderKeys {
   val Accept = "Accept"
   val AcceptCharset = "Accept-Charset"
   val AcceptEncoding = "Accept-Encoding"
-  val AcceptLanguage = "Accept-Language"  
+  val AcceptLanguage = "Accept-Language"
+  val AccessControlAllowHeaders = "Access-Control-Allow-Headers"
+  val AccessControlAllowMethods = "Access-Control-Allow-Methods"
+  val AccessControlAllowOrigin = "Access-Control-Allow-Origin"
+  val AccessControlExposeHeaders = "Access-Control-Expose-Headers"
+  val AccessControlMaxAge = "Access-Control-Max-Age"
+  val AccessControlRequestHeaders = "Access-Control-Request-Headers"
+  val AccessControlRequestMethod = "Access-Control-Request-Method"
   val Authorization = "Authorization"
   val CacheControl = "Cache-Control"
   val ContentEncoding = "Content-Encoding"
   val ContentLength = "Content-Length"
-  val ContentType = "ContentType"
+  val ContentType = "Content-Type"
   val ContentID = "Content-ID"
+  val CrossOriginResourcePolicy = "Cross-Origin-Resource-Policy"
   val ETag = "ETag"
   val Expect = "Expect"
+  val From = "From"
   val Host = "Host"
   val IfMatch = "If-Match"
+  val IfModifiedSince = "If-Modified-Since"
   val IfNoneMatch = "If-None-Match"
+  val KeepAlive = "Keep-Alive"
+  val Location = "Location"
   val Origin = "Origin"
+  val RetryAfter = "Retry-After"
   val SetCookie = "Set-Cookie"
+  val Server = "Server"
   val UserAgent = "User-Agent"
 }
 
 object HttpHeaders extends HeaderKeys {
   /** HttpHeaders zero. */
   val empty: HttpHeaders = collection.immutable.Map[String, Seq[String]]()
-  def apply(p: (String, String)*): HttpHeaders = p.toMap.mapValues(Seq(_))
+  def apply(p: (String, String)*): HttpHeaders = p.toMap.view.mapValues(Seq(_)).toMap
   def seqPairs(p: (String, Seq[String])*): HttpHeaders = p.toMap
   //def pairs(p: (String, String)*): HttpHeaders = apply(p:_*)
-  def map(p: Map[String,String]): HttpHeaders = p.mapValues(Seq(_))
+  def map(p: Map[String,String]): HttpHeaders = p.view.mapValues(Seq(_)).toMap
 
   def contentId(id: String) = apply(ContentID -> id)
   def contentType(t: String) = apply(ContentType -> t)

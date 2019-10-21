@@ -69,8 +69,8 @@ trait Client[B1[_], C1, B2[_], C2, F[_], +E] {
 
   /**
    * Fetch response, process response with a decoder `d` regardless of status,
-   * unlike `expect` which expects a succesful response. Your decoder should be
-   * robust in the presence of potential error information in the body, status, etc..
+   * Your decoder should be robust in the presence of potential error
+   * information in the stats, body, or whatever could be an error.
    */
   def fetchAs[A](req: HttpRequest[B1,C1])(implicit d: EntityDecoder[B2,C2,F,A]): DecodeResult[F,A]
   /** Fetch and process with decoder regardless of status. */

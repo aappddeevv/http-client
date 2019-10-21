@@ -4,39 +4,39 @@ import org.portablescala.sbtplatformdeps.PlatformDepsPlugin.autoImport._
 
 object Dependencies {
 
-  val monocleVersion = "1.5.0-cats"
+  val monocleVersion = "2.0.0"
 
   /** Dependencies that are jvm/js */
   val commonDependencies = Def.setting(Seq(
 
-    "org.scalatest"          %%% "scalatest"    % "3.0.5" % "test", //% "3.2.0-SNAP10" % "test",
-    "co.fs2" %%% "fs2-core" % "1.0.3",
-    "org.typelevel" %%% "cats-core" % "1.6.0",
-    "org.typelevel" %%% "cats-effect" % "1.2.0",
-    "org.scala-js" %%% "scalajs-java-time" % "latest.version",
+    "org.scalatest"          %%% "scalatest"    % "3.1.0-RC3" % "test", //% "3.2.0-SNAP10" % "test",
+    "co.fs2" %%% "fs2-core" % "2.0.0",//"1.0.3",
+    "org.typelevel" %%% "cats-core" % "2.0.0",
+    "org.typelevel" %%% "cats-effect" % "2.0.0",
+    "org.scala-js" %%% "scalajs-java-time" % "0.2.5",
     "org.scala-sbt" % "test-interface" % "1.0",
-    "io.estatico" %% "newtype" % "0.4.2",
+    "io.estatico" %% "newtype" % "0.4.3",
   ))
 
   val cliDependencies = Def.setting(Seq(
-    "com.definitelyscala" % "scala-js-xmldoc_sjs0.6_2.12" % "1.1.0",
-    "com.github.julien-truffaut" %%%  "monocle-core"  % monocleVersion,
+    //"com.definitelyscala" % "scala-js-xmldoc_sjs0.6_2.12" % "1.1.0",
+    "com.github.julien-truffaut" %%%  "monocle-copre"  % monocleVersion,
     "com.github.julien-truffaut" %%%  "monocle-macro" % monocleVersion,
     "org.scala-lang.modules" %% "scala-xml" % "1.1.0",
-    "ru.pavkin" %%% "scala-js-momentjs" % "0.9.2",    
+    "ru.pavkin" %%% "scala-js-momentjs" % "0.9.3",    
   ))
 
   val appDependencies = Def.setting(Seq(
-    "ru.pavkin" %%% "scala-js-momentjs" % "0.9.1",
+    "ru.pavkin" %%% "scala-js-momentjs" % "0.9.3",
   ))
 
   val npmver = "0.4.2"
 
   /** js only libraries */
-  val myJSDependencies = Def.setting(Seq(
-    "io.scalajs.npm" %%% "node-fetch" % npmver,
-    "io.scalajs"             %%% "nodejs"      % npmver,
-    "io.scalajs.npm" %%% "xml2js" % npmver
+  val jsServerDependencies = Def.setting(Seq(
+    "io.scalajs.npm" % "node-fetch_sjs0.6_2.12" % npmver,
+    "io.scalajs"             % "nodejs_sjs0.6_2.12"      % npmver,
+    "io.scalajs.npm" % "xml2js_sjs0.6_2.12" % npmver
   ))
 
   val commonScalacOptions = Seq(
@@ -45,9 +45,11 @@ object Dependencies {
     "-feature",
     "-language:_", // maybe shrink this a little...
     "-unchecked",
-    "-Yno-adapted-args",
+    //"-Yno-adapted-args",
     "-Ywarn-numeric-widen",
-    "-Xfuture",
-    "-Ypartial-unification"
+    //"-Xfuture",
+    // default in 2.13
+    //"-Ypartial-unification"
+    "-Ymacro-annotations"
   )
 }

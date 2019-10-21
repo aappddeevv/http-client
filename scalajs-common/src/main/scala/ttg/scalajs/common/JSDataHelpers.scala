@@ -75,7 +75,10 @@ object JSDataHelpers {
     })
 
   @inline
-  def roundAt(p: Int)(n: Double): Double = { val s = math pow (10, p); (math round n * s) / s }
+  def roundAt(p: Int)(n: Double): Double = {
+    val s = math pow (10, p)
+    (math round n * s) / s
+  }
 
   /**
    * Get a value in the js object and return it wrapped in `Option`. If found,

@@ -57,6 +57,18 @@ object encoders {
  * "message" is the scala HttpResponse and "message.body" is a FetchResponse.
  */
 object decoders {
+
+  def statusCheck[F[_]: Async] =
+    EntityDecoder.instance[Id, Response, Id, Response]{ message =>
+      if(message.status == Status.OK) DecodeResult.success(message.body)
+      else DecodeResult.failure(new UnexpectedHttpStatus(message.status, Option("add more details here")))
+      // message match {
+      //   case Status.Successful(r) => DecodeResult.success(r.body)
+      //   case responseWithBadStatus =>
+      //     DecodeResult.failure(new UnexpectedHttpStatus(message.status, Option("add more details here")))
+      // }
+    }
+
   def blob[F[_]: Async] =
     EntityDecoder.instance[Id, Response, F, Blob]{ message =>
       DecodeResult.success[F, Blob](message.body.blob().toF[F])
@@ -156,11 +168,12 @@ object Client {
    * @param base Base URL prepended to all requests. Default is document.location.origin.
    * @param convert Natural transformation from js.Promise -> F. Default is common.jsPromiseToF[F]
    * @param baseRequestInit Request parameters used in all requests. run's
-   * request overrides and there are no smart combines. Default is None.
+   * request overrides values and the values are *not* smartly combined. Default
+   * is None.
    * @tparam F Async effect. In cats this forces E to Throwable.
    */
   def apply[F[_]: Async](
-    convert: Option[js.Promise ~> F] = None,
+    convert: Option[js.Thenable ~> F] = None,
     base: Option[String] = None,    
     baseRequestInit: Option[RequestInit] = None
   ) = {
