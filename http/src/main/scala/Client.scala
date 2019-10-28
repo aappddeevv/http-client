@@ -39,7 +39,7 @@ trait ClientStreaming[B1[_], C1, B2[_], C2, F[_], E, SF[_], S[_,_]] {
  * Design is based directly on http4s design. It's really a `Kleisli. `Client`
  * is really a wrapper around a function `Request => F[Response]`.
  * 
- * It is not required, but if the response is received correctly with a status
+ * Optionally, if the response is received correctly with a status
  * that is not Ok, return a value of of type `UnexpectedHttpStatus` if your
  * error channel is built into the effect and is Throwable.
  * 
@@ -48,7 +48,15 @@ trait ClientStreaming[B1[_], C1, B2[_], C2, F[_], E, SF[_], S[_,_]] {
  * * remote call: B1[C1] => B2[C2]
  * * decoder: B2[C2] => DecodeResult[F, T]
  * 
- * B1, B2 can be sync/async, F needs to be async for remote calls.
+ * B1, B2 can be sync/async or just Id, F needs to be async for remote calls.
+ *
+ * @tparam B1 Effect wrapping domain value. Often a strict, sync wrapper like Id.
+ * @tparam C1 Type of value that a concrete Client understands.
+ * @tparam B2 Output effect from concrete Client.
+ * @tparam C2 Output value from the concrete Client.
+ * @tparam F Output effect, application level.
+ * @tparam E Error type used in F, typically subtype of Exception.
+ *
  */
 trait Client[B1[_], C1, B2[_], C2, F[_], +E] {
 

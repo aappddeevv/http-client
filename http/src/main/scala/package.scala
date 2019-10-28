@@ -35,8 +35,7 @@ package object http {
   type Middleware[B1[_],C1,B2[_],C2,F[_],E] =
     Client[B1,C1,B2,C2,F,E] => Client[B1,C1,B2,C2,F,E]
 
-  /** Basic headers are a dict of strings. It would be easier if it was
-   * String,String?
+  /** Basic headers are a dict of strings.
    */
   type HttpHeaders = Map[String, Seq[String]]
 
@@ -50,6 +49,8 @@ package object http {
     * effect's extract mechanism e.g. extract from EitherT using
     * `myEitherT.value` then use IO's `redeem` and then use IO's unsafeRun*
     * methods.
+   * 
+   * This is highly suboptimal and cats dependent but does not need to be.
     *
    * @see https://typelevel.org/cats/api/cats/data/EitherT.html
    * @see https://typelevel.org/cats/datatypes/eithert.html
@@ -62,9 +63,6 @@ package object http {
    */
   // type RetryPolicy[F[_], E] =
   //   (HttpRequest[F], Either[E, HttpResponse[F]], Int) => Option[FiniteDuration]
-
-  /** Reviver used when decoding using javascript engine decoder. */
-  type Reviver = js.Function2[js.Any, js.Any, js.Any]
 
   case class Method (asString: String) extends AnyVal
   object Method {

@@ -7,10 +7,8 @@ package client
 
 import org.scalajs.dom
 import dom.experimental._
-import cats._
-import cats.data._
-
 import ttg.client.http._
+import _root_.cats._
 
 package object browserfetch {
   type FetchResponse = dom.experimental.Response

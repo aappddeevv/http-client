@@ -5,6 +5,7 @@
 package ttg
 package scalajs
 package common
+package cats
 
 import scala.scalajs.js
 import js._
@@ -12,10 +13,10 @@ import fs2._
 import scala.concurrent._
 import duration._
 import java.util.concurrent.{TimeUnit => TU}
-import cats._
-import cats.data._
-import cats.implicits._
-import cats.effect._
+import _root_.cats._
+import _root_.cats.data._
+import _root_.cats.implicits._
+import _root_.cats.effect._
 
 object fs2helpers {
 

@@ -9,18 +9,13 @@ package common
 import java.io._
 import scala.scalajs.js
 import js.|
-import scala.concurrent._
-import cats.effect._
-import cats._
-import cats.data._
-import cats.implicits._
 
 object Utils {
 
   /** Factory to create a matcher.
     * @return A => Boolean
     */
-  def filterOneForMatches[A](f: A => Seq[String], filters: Traversable[String] = Nil) = {
+  def filterOneForMatches[A](f: A => Seq[String], filters: Iterable[String] = Nil) = {
     val counter = matchCount(filters)
     (item: A) =>
       {
@@ -31,7 +26,7 @@ object Utils {
   }
 
   /** Given a set of regex filters, return String => Int that counts matches. */
-  def matchCount(filters: Traversable[String]) = {
+  def matchCount(filters: Iterable[String]) = {
     import scala.util.matching.Regex
     val regexList =
       if (filters.size == 0) Seq(new Regex(".*"))
@@ -53,7 +48,7 @@ object Utils {
     * the "keys" for where matches occurred. The input values often come from a
     * groupby.
     */
-  def filterForMatches[A](wr: Traversable[(A, Seq[String])], filters: Traversable[String] = Nil): Seq[A] = {
+  def filterForMatches[A](wr: Iterable[(A, Seq[String])], filters: Iterable[String] = Nil): Seq[A] = {
     val counter = matchCount(filters)
     wr.map(d => {
         val keys   = d._2
@@ -119,9 +114,11 @@ object Utils {
   def strip(in: String): String =
     in.replaceAll("[\\p{Cntrl}&&[^\n\t\r]]", "").replaceAll("\\P{InBasic_Latin}", "")
 
+  /** Parse json with an optional Reviver but defaulting to no Reviver. */
   def parseJson[A](content: String, reviver: Option[Reviver]=None) =
     js.JSON.parse(content, reviver.getOrElse(undefinedReviver)).asInstanceOf[A]
 
+  /** Parse json using a default Reviver that parses dates using `dateReviver`. */
   def parseJsonWithDates[A](content: String, reviver: Reviver = dateReviver): A =
     parseJson(content, Option(dateReviver))
 }

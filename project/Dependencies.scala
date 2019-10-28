@@ -8,14 +8,16 @@ object Dependencies {
 
   /** Dependencies that are jvm/js */
   val commonDependencies = Def.setting(Seq(
-
     "org.scalatest"          %%% "scalatest"    % "3.1.0-RC3" % "test", //% "3.2.0-SNAP10" % "test",
-    "co.fs2" %%% "fs2-core" % "2.0.0",//"1.0.3",
-    "org.typelevel" %%% "cats-core" % "2.0.0",
-    "org.typelevel" %%% "cats-effect" % "2.0.0",
     "org.scala-js" %%% "scalajs-java-time" % "0.2.5",
     "org.scala-sbt" % "test-interface" % "1.0",
     "io.estatico" %% "newtype" % "0.4.3",
+  ))
+
+  val catsDependencies = Def.setting(Seq(
+    "co.fs2" %%% "fs2-core" % "2.0.0",
+    "org.typelevel" %%% "cats-core" % "2.0.0",
+    "org.typelevel" %%% "cats-effect" % "2.0.0",
   ))
 
   val cliDependencies = Def.setting(Seq(
@@ -45,11 +47,7 @@ object Dependencies {
     "-feature",
     "-language:_", // maybe shrink this a little...
     "-unchecked",
-    //"-Yno-adapted-args",
     "-Ywarn-numeric-widen",
-    //"-Xfuture",
-    // default in 2.13
-    //"-Ypartial-unification"
     "-Ymacro-annotations"
   )
 }

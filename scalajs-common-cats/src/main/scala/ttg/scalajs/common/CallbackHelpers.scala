@@ -5,10 +5,11 @@
 package ttg
 package scalajs
 package common
+package cats
 
 import scala.scalajs.js
 import scala.scalajs.runtime.wrapJavaScriptException
-import cats.effect._
+import _root_.cats.effect._
 
 /** Some small support to convert callback APIs in node to a cats effect.  This
  * is similar in spirit to io.scalajs.util.PromiseHelper. The first parameter is

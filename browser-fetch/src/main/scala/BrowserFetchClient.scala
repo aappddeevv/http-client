@@ -7,21 +7,23 @@ package client
 package browserfetch
 
 import scala.scalajs.js
-import js.|
 import org.scalajs.dom
 import dom.experimental._
 import dom._
 import scala.scalajs.js.typedarray.{ArrayBuffer, Uint8Array}
 
-import cats._
-import cats.data._
-import cats.implicits._
-import cats.effect._
+import _root_.cats._
+import _root_.cats.data._
+import _root_.cats.implicits._
+import _root_.cats.effect._
 import js.JSConverters._
 
 import ttg.scalajs.common
+import ttg.scalajs.common.Reviver
 import client.http._
-import common.implicits._
+import ttg.scalajs.common.implicits._
+import ttg.scalajs.common.cats._
+import ttg.scalajs.common.cats.implicits._
 
 /*
  val myByteArray = new ArrayBuffer(100)
@@ -166,23 +168,32 @@ object Client {
    * CommunicationsFailure and returned in F's error channel.
    * 
    * @param base Base URL prepended to all requests. Default is document.location.origin.
-   * @param convert Natural transformation from js.Promise -> F. Default is common.jsPromiseToF[F]
+   * @param convert Natural transformation from js.Promise -> F. Default for a
+   * cats-effect version can be `ttg.scalajs.common.cats.jsPromiseToF[IO]`.
    * @param baseRequestInit Request parameters used in all requests. run's
    * request overrides values and the values are *not* smartly combined. Default
    * is None.
    * @tparam F Async effect. In cats this forces E to Throwable.
    */
   def apply[F[_]: Async](
-    convert: Option[js.Thenable ~> F] = None,
-    base: Option[String] = None,    
+    convert: js.Thenable ~> F,
+    base: Option[String] = None,
     baseRequestInit: Option[RequestInit] = None
   ) = {
 
     val F = Async[F]
-    val convertEffect = convert.getOrElse(common.jsPromiseToF[F])
+    val convertEffect = convert //convert.getOrElse(common.jsPromiseToF[F])
     val url =
       base
-        .map(u => if(u.endsWith("/")) u.dropRight(1) else u)
+        .map{u =>
+          var b = u
+          if(!u.startsWith("http")) {
+            if(u.startsWith("/")) b = s"${dom.document.location.origin}$u"
+            else b = s"${dom.document.location.origin}/$u"
+          }
+          if(b.endsWith("/")) b.dropRight(1)
+          b
+        }
         .getOrElse(dom.document.location.origin)
 
     http.Client[Id,BodyInit,Id,FetchResponse,F,Throwable] { request =>
@@ -202,6 +213,7 @@ object Client {
               toFetchHeaders(request.headers),
           method = request.method.asString.asInstanceOf[HttpMethod]
         ))
+      // I think this immediately starts the request...check this!
       val responseF = convertEffect(Fetch.fetch(path, fetchopts)).map { r =>
         HttpResponse[Id, Response](
           status = Status.lookup(r.status),
@@ -209,9 +221,8 @@ object Client {
           body = r
         )
       }
-      // Have effect with remote call in it and a returned response add some
-      // error recovery to map into the F effect's error channel with
-      // CommunicationsFailure.
+      // Given HTTP request effect with its response add some error recovery to
+      // map into the F effect's error channel using CommunicationsFailure.
       responseF
         .handleErrorWith {
           case scala.util.control.NonFatal(t: js.JavaScriptException) =>

@@ -13,7 +13,7 @@ import cats.effect._
 import cats.implicits._
 
 /**
-  * Helper objects to make creating DecodeResults easier.
+  * DecodeResult smart constructors.
   */
 object DecodeResult {
 

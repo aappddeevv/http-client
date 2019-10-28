@@ -6,7 +6,6 @@ resolvers in ThisBuild += Resolver.sonatypeRepo("releases")
 resolvers in ThisBuild += Resolver.sonatypeRepo("snapshots")
 resolvers in ThisBuild += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 resolvers in ThisBuild += Resolver.typesafeRepo("snapshots")
-//resolvers += Resolver.bintrayRepo("softprops", "maven") // for retry, what else?
 resolvers in ThisBuild += Resolver.bintrayRepo("scalameta", "maven") // for latset scalafmt
 resolvers in ThisBuild += Resolver.bintrayRepo("definitelyscala", "maven") // for latest facades
 resolvers in ThisBuild += Resolver.jcenterRepo
@@ -49,8 +48,7 @@ lazy val commonSettings = Seq(
     (if (scalaJSVersion.startsWith("0.6."))
       Seq("-P:scalajs:sjsDefinedByDefault")
     else Nil),
-  libraryDependencies ++=
-    (Dependencies.commonDependencies.value),
+  libraryDependencies ++= Dependencies.commonDependencies.value,
   addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full),
   //addCompilerPlugin("org.scalamacros" % "paradise" % "3.1.1" cross CrossVersion.full),
 )
@@ -70,6 +68,7 @@ lazy val root = project.in(file("."))
     http,
     odata,
     `scalajs-common`,
+    `scalajs-common-cats`,
     `scalajs-common-server`,    
     docs,
     msad,
@@ -83,6 +82,14 @@ lazy val `scalajs-common` = project
   .settings(name := "scalajs-common")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
 
+lazy val `scalajs-common-cats` = project
+  .settings(dynamicsSettings)
+  .settings(libraryDependencies ++= Dependencies.catsDependencies.value)
+  .settings(description := "Common components that rely on cats e.g. monad hierarchy or effects")
+  .settings(name := "scalajs-common-cats")
+  .dependsOn(`scalajs-common`)
+  .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
+
 lazy val `scalajs-common-server` = project
   .settings(dynamicsSettings)
   .settings(jsServerSettings)
@@ -91,13 +98,12 @@ lazy val `scalajs-common-server` = project
   .settings(name := "scalajs-common-server")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
 
-
 lazy val http = project
   .settings(dynamicsSettings)
   .settings(name := "http-client-http")
   .settings(description := "HTTP client")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
-  .dependsOn(`scalajs-common`)
+  .dependsOn(`scalajs-common-cats`)
 
 lazy val `node-fetch` = project
   .settings(dynamicsSettings)
@@ -114,7 +120,7 @@ lazy val `browser-fetch` = project
   .settings(name := "http-client-browser-fetch")
   .settings(description := "client based on a browser's fetch API")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
-  .dependsOn(http,`scalajs-common`)
+  .dependsOn(http,`scalajs-common-cats`)
   //.settings(requireJsDomEnv in Test := true)
 
 lazy val msad = project
@@ -122,7 +128,7 @@ lazy val msad = project
   .settings(name := "http-client-msad")
   .settings(description := "Microsoft AD authentication via msal.js")
   .enablePlugins(ScalaJSPlugin, AutomateHeaderPlugin)
-  .dependsOn(http, `scalajs-common`)
+  .dependsOn(http, `scalajs-common-cats`)
 
 lazy val odata = project
   .settings(dynamicsSettings)
@@ -174,7 +180,7 @@ buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion)
 // buildInfoPackage := "dynamics-client"
 
 bintrayReleaseOnPublish in ThisBuild := false
-bintrayPackageLabels := Seq("scalajs", "odata", "scala")
+bintrayPackageLabels := Seq("scalajs", "odata", "scala", "client", "http")
 bintrayVcsUrl := Some("git:git@github.com:aappddeevv/odata-client")
 bintrayRepository := "maven"
 

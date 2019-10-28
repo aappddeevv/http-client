@@ -82,8 +82,9 @@ abstract class EntityDecoder[B[_]: Monad, C, F[_]: Monad, T] { self =>
 
   /**
     * Try this decoder then other if this decoder returns a decode failure. Due
-    * to the process-once nature of the body, "this" decoder must really check
-    * headers or other information to allow orElse to read the body correctly.
+    * to the process-once nature of the body, "this" decoder must really only
+    * check headers or other information to allow orElse to read the body
+    * correctly.
     */
   def orElse[T2 >: T](other: EntityDecoder[B, C, F, T2])  = {
     new EntityDecoder[B, C, F, T2] {

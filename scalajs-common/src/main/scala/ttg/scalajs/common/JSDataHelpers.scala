@@ -9,11 +9,6 @@ import scala.scalajs.js
 import js._
 import js.Dynamic.{literal => jsobj}
 import JSConverters._
-import scala.concurrent._
-import fs2._
-import cats._
-import cats.data._
-import cats.implicits._
 
 import ttg.scalajs.common
 import common._
